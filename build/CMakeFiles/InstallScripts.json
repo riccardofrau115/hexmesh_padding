@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/hexmesh_padding/build/cmake_install.cmake",
+		"/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/hexmesh_padding/build/imgui/cmake_install.cmake",
+		"/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/hexmesh_padding/build/imgui/glfw/cmake_install.cmake",
+		"/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/hexmesh_padding/build/imgui/glfw/src/cmake_install.cmake",
+		"/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/hexmesh_padding/build/STB/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
