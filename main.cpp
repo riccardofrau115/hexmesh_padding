@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 {
     using namespace cinolib;
 
-    // original meshesss
+    // original meshes
 
     //dual_mesh();
 
