@@ -7,7 +7,7 @@
 #include <cinolib/meshes/polyhedralmesh.h>
 #include <cinolib/export_cluster.h>
 
-#define T_PATTERN Vert_side_WB
+#define T_PATTERN Flat
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
@@ -27,7 +27,7 @@ void mesh_singularity(
         export_cluster(poly_mesh, i, poly_singularity);
         poly_singularity.updateGL();
         // std::cout << "Exporting singularity cluster " << i << std::endl;
-        poly_singularity.save(std::string((STR(T_PATTERN)) + std::to_string(i) + ".mesh").c_str());
+        poly_singularity.save(std::string((STR(T_PATTERN)) + std::string("_") + std::to_string(i) + ".mesh").c_str());
     }
 }
 
