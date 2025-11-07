@@ -9,24 +9,23 @@
 
 using namespace cinolib;
 
-// void mesh_singularity(
-//     AbstractPolyhedralMesh<> &m,
-//     DrawablePolyhedralmesh<> &poly_singularity)
-// {
-//     using namespace cinolib;
-//     // std::string path = "/singularities/";
-//     std::vector<std::vector<uint>> polys_vec = m.vector_polys();
-//     std::string filename = "flat_single_";
-//     for (uint i = 0; i < (uint)polys_vec.size(); ++i)
-//     {
-//         // std::cout << "Exporting singularity cluster " << i << std::endl;
-//         poly_singularity.clear();
-//         m.poly_data(i).label = i;
-//         export_cluster(m, (uint)i, poly_singularity);
-//         poly_singularity.updateGL();
-//         // poly_singularity.save((filename + std::to_string(i) + ".mesh").c_str());
-//     }
-// }
+void mesh_singularity(
+    AbstractPolyhedralMesh<> &poly_mesh,
+    DrawablePolyhedralmesh<> &poly_singularity)
+{
+    using namespace cinolib;
+    // std::string path = "/singularities/";
+    std::vector<std::vector<uint>> polys_vec = poly_mesh.vector_polys();
+    for (uint i = 0; i < polys_vec.size(); ++i)
+    {
+        poly_singularity.clear();
+        poly_mesh.poly_data(i).label = i;
+        export_cluster(poly_mesh, i, poly_singularity);
+        poly_singularity.updateGL();
+        std::cout << "Exporting singularity cluster " << i << std::endl;
+        poly_singularity.save(("flat" + std::to_string(i) + ".mesh").c_str());
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -41,22 +40,14 @@ int main(int argc, char **argv)
     poly_mesh.translate(vec3d(m.bbox().delta_x() * 1.5, 0, 0));
     poly_mesh.updateGL();
 
+    //poly_mesh.save("dual_flat.mesh");
+
     // singularity extraction
 
-    //std::string filename = "poly.mesh";
+    // std::string filename = "poly.mesh";
 
     DrawablePolyhedralmesh<> poly_singularity;
-    // mesh_singularity(poly_mesh, poly_singularity);
-
-    for (uint i = 0; i < 4; ++i)
-    {
-        poly_singularity.clear();
-        poly_mesh.poly_data(i).label = i;
-        export_cluster(poly_mesh, i, poly_singularity); 
-        poly_singularity.updateGL();
-        std::cout << "Exporting singularity cluster " << i  << std::endl;
-        poly_singularity.save(("poly" + std::to_string(i) + ".mesh").c_str());
-    }
+    mesh_singularity(poly_mesh, poly_singularity);
 
     // poly_singularity.translate(vec3d(poly_mesh.bbox().delta_x() * 1.5, 0, 0));
 
