@@ -54,6 +54,139 @@ std::vector<uint> edges_with_one_common_vert(const uint fid, const AbstractPolyh
     return result;
 }
 
+void hex_rebase(const uint hex_in[8],
+                const int offset,
+                uint hex_out[8])
+{
+
+    switch (offset)
+    {
+
+    case 0:
+        hex_out[0] = hex_in[0];
+        hex_out[1] = hex_in[1];
+        hex_out[2] = hex_in[2];
+        hex_out[3] = hex_in[3];
+        hex_out[4] = hex_in[4];
+        hex_out[5] = hex_in[5];
+        hex_out[6] = hex_in[6];
+        hex_out[7] = hex_in[7];
+        return;
+
+    case 1:
+        hex_out[0] = hex_in[7];
+        hex_out[1] = hex_in[6];
+        hex_out[2] = hex_in[5];
+        hex_out[3] = hex_in[4];
+        hex_out[4] = hex_in[3];
+        hex_out[5] = hex_in[2];
+        hex_out[6] = hex_in[1];
+        hex_out[7] = hex_in[0];
+        return;
+
+    case 2:
+        hex_out[0] = hex_in[4];
+        hex_out[1] = hex_in[5];
+        hex_out[2] = hex_in[1];
+        hex_out[3] = hex_in[0];
+        hex_out[4] = hex_in[7];
+        hex_out[5] = hex_in[6];
+        hex_out[6] = hex_in[2];
+        hex_out[7] = hex_in[3];
+        return;
+
+    case 3:
+        hex_out[0] = hex_in[6];
+        hex_out[1] = hex_in[5];
+        hex_out[2] = hex_in[1];
+        hex_out[3] = hex_in[2];
+        hex_out[4] = hex_in[7];
+        hex_out[5] = hex_in[4];
+        hex_out[6] = hex_in[0];
+        hex_out[7] = hex_in[3];
+        return;
+
+    case 4:
+        hex_out[0] = hex_in[7];
+        hex_out[1] = hex_in[6];
+        hex_out[2] = hex_in[2];
+        hex_out[3] = hex_in[3];
+        hex_out[4] = hex_in[4];
+        hex_out[5] = hex_in[5];
+        hex_out[6] = hex_in[1];
+        hex_out[7] = hex_in[0];
+        return;
+
+    case 5:
+        hex_out[0] = hex_in[4];
+        hex_out[1] = hex_in[7];
+        hex_out[2] = hex_in[3];
+        hex_out[3] = hex_in[0];
+        hex_out[4] = hex_in[5];
+        hex_out[5] = hex_in[6];
+        hex_out[6] = hex_in[2];
+        hex_out[7] = hex_in[1];
+        return;
+
+    default:
+        throw std::runtime_error("Invalid Hex Offset");
+
+        return;
+    }
+}
+
+void hex_around_axis(const uint hex_in[8],
+                     const int offset,
+                     uint hex_out[8])
+{
+    switch (offset)
+    {
+    case 0:
+        hex_out[0] = hex_in[0];
+        hex_out[1] = hex_in[1];
+        hex_out[2] = hex_in[2];
+        hex_out[3] = hex_in[3];
+        hex_out[4] = hex_in[4];
+        hex_out[5] = hex_in[5];
+        hex_out[6] = hex_in[6];
+        hex_out[7] = hex_in[7];
+        break;
+
+    case 1:
+        hex_out[0] = hex_in[1];
+        hex_out[1] = hex_in[2];
+        hex_out[2] = hex_in[3];
+        hex_out[3] = hex_in[0];
+        hex_out[4] = hex_in[5];
+        hex_out[5] = hex_in[6];
+        hex_out[6] = hex_in[7];
+        hex_out[7] = hex_in[4];
+        break;
+
+    case 2:
+        hex_out[0] = hex_in[2];
+        hex_out[1] = hex_in[3];
+        hex_out[2] = hex_in[0];
+        hex_out[3] = hex_in[1];
+        hex_out[4] = hex_in[6];
+        hex_out[5] = hex_in[7];
+        hex_out[6] = hex_in[4];
+        hex_out[7] = hex_in[5];
+        break;
+
+    case 3:
+        hex_out[0] = hex_in[3];
+        hex_out[1] = hex_in[0];
+        hex_out[2] = hex_in[1];
+        hex_out[3] = hex_in[2];
+        hex_out[4] = hex_in[7];
+        hex_out[5] = hex_in[4];
+        hex_out[6] = hex_in[5];
+        hex_out[7] = hex_in[6];
+        break;
+    }
+}
+
 int main(int argc, char **argv)
 {
     using namespace cinolib;
@@ -84,12 +217,12 @@ int main(int argc, char **argv)
 
     uint pid = 0;
     std::vector<uint> fids_vec;
-    // fids_vec.push_back(0);
+    fids_vec.push_back(0);
     // fids_vec.push_back(1);
-    // fids_vec.push_back(2);
+    fids_vec.push_back(2);
     // fids_vec.push_back(3);
     // fids_vec.push_back(4);
-    fids_vec.push_back(5);
+    // fids_vec.push_back(5);
     uint fid_first = fids_vec[0]; // Scegli la prima faccia del poliedro
     double lambda = 1 / 3.0;      // posizione di split lungo l'edge
 
@@ -100,11 +233,7 @@ int main(int argc, char **argv)
     std::vector<uint> poly_first_vids, poly_second_vids, poly_third_vids, poly_fourth_vids, poly_fifth_vids, poly_sixth_vids, poly_seventh_vids;
     std::vector<uint> verts_arranged = verts_og;
     std::vector<uint> new_vids;
-    hex_shift_indices(verts_og.data(), fid_first, verts_arranged.data());
-    for (auto face : fids_vec)
-    {
-        std::cout << "faccia" << face << std::endl;
-    }
+    hex_rebase(verts_og.data(), 2, verts_arranged.data());
 
     switch (fids_vec.size())
     {
@@ -186,7 +315,7 @@ int main(int argc, char **argv)
             poly_first_vids.push_back(GH);
             poly_first_vids.push_back(HG);
 
-            //A, AB, DC, D, E, EF, HG, H;
+            // A, AB, DC, D, E, EF, HG, H;
             poly_second_vids.clear();
             poly_second_vids.push_back(verts_arranged[0]); // A
             poly_second_vids.push_back(AB);
@@ -197,10 +326,9 @@ int main(int argc, char **argv)
             poly_second_vids.push_back(HG);
             poly_second_vids.push_back(verts_arranged[7]); // H
 
-
             // BA, B, C, CD, FE, F, G, GH
             poly_third_vids.clear();
-            poly_third_vids.push_back(BA);  
+            poly_third_vids.push_back(BA);
             poly_third_vids.push_back(verts_arranged[1]); // B
             poly_third_vids.push_back(verts_arranged[2]); // C
             poly_third_vids.push_back(CD);
@@ -212,8 +340,6 @@ int main(int argc, char **argv)
             poly_mesh.poly_add(poly_first_vids);
             poly_mesh.poly_add(poly_second_vids);
             poly_mesh.poly_add(poly_third_vids);
-
-
         }
         else // caso in cui le facce siano adiacenti
         {
@@ -889,7 +1015,7 @@ int main(int argc, char **argv)
         break;
     }
     default:
-        std::cout << "No possible split";
+        std::cout << "No possible split" << std::endl;
         break;
     }
 
