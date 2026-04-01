@@ -363,10 +363,10 @@ int main(int argc, char **argv)
     std::vector<uint> fids_vec; // TODO: vettore delle facce da paddare
     fids_vec.push_back(0);
     fids_vec.push_back(1);
-    // fids_vec.push_back(2);
-    // fids_vec.push_back(3);
+    fids_vec.push_back(2);
+    fids_vec.push_back(3);
     // fids_vec.push_back(4);
-    // fids_vec.push_back(5);
+    fids_vec.push_back(5);
     double lambda = 1 / 3.0; // posizione di split lungo l'edge
 
     vec3d split_point;
@@ -384,6 +384,7 @@ int main(int argc, char **argv)
     case 1:
     {
         std::cout << "Split along face " << fids_vec[0] << std::endl;
+        arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {0});
         // padding della faccia 0
 
         split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[4]);
@@ -547,7 +548,6 @@ int main(int argc, char **argv)
     case 3:
     {
         std::cout << "Split along faces " << fids_vec[0] << ", " << fids_vec[1] << " and " << fids_vec[2] << std::endl;
-
         // facce ad angolo, tutte le facce sono adiacenti tra loro
 
         bool corner =
@@ -557,6 +557,7 @@ int main(int argc, char **argv)
 
         if (corner)
         {
+            arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {0, 2, 3});
 
             // padding delle facce 0, 2 e 3
 
@@ -696,6 +697,7 @@ int main(int argc, char **argv)
         else // facce a forma di U
         {
             // padding delle facce 3, 4, e 5
+            arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {3, 4, 5});
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint AB = (poly_mesh.vert_add(split_point));
@@ -786,6 +788,7 @@ int main(int argc, char **argv)
         {
             // caso in cui le facce da escludere siano adiacenti tra loro
             // padding delle facce 0, 1, 2 e 3
+            arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {0, 1, 2, 3});
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint AH = (poly_mesh.vert_add(split_point));
@@ -872,6 +875,7 @@ int main(int argc, char **argv)
         {
             // caso in cui le facce da escludere siano opposte
             // padding delle facce 2, 3, 4 e 5
+            arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {2, 3, 4, 5});
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[2]);
             uint AC = (poly_mesh.vert_add(split_point));
@@ -958,6 +962,10 @@ int main(int argc, char **argv)
     case 5:
     {
         std::cout << "Split along faces " << fids_vec[0] << ", " << fids_vec[1] << ", " << fids_vec[2] << ", " << fids_vec[3] << " and " << fids_vec[4] << std::endl;
+        
+        // padding delle facce 0, 1, 2, 3 e 5
+        arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {0, 1, 2, 3, 5});
+        
 
         split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[6]);
         uint AG = (poly_mesh.vert_add(split_point));
@@ -1056,6 +1064,8 @@ int main(int argc, char **argv)
     case 6:
     {
         std::cout << "Split along  all faces" << std::endl;
+        // padding di tutte le facce, nessuna rotazione necessaria
+
 
         split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[6]);
         uint AG = (poly_mesh.vert_add(split_point));

@@ -1147,8 +1147,12 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/drawable_segment_soup.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/drawable_vector_field.cpp \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/drawable_vector_field.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/dual_mesh.cpp \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/dual_mesh.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/earcut.cpp \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/earcut.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_cluster.cpp \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_cluster.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_marked_faces.cpp \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_marked_faces.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_surface.cpp \
@@ -1207,6 +1211,8 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gl/volume_mesh_controls.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gradient.cpp \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gradient.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_shift_indices.cpp \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_shift_indices.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_transition_schemes.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/how_many_seconds.cpp \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/how_many_seconds.h \
@@ -1469,6 +1475,8 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/how_many_seconds.cpp:
 
+/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_shift_indices.cpp:
+
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gl/offline_gl_context.h:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gl/glunproject.h:
@@ -1514,6 +1522,10 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/earcut.h:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/earcut.cpp:
+
+/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/dual_mesh.h:
+
+/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/dual_mesh.cpp:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/drawable_vector_field.cpp:
 
@@ -1809,6 +1821,8 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/Core/Inverse.h:
 
+/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_cluster.h:
+
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/Core/IndexedView.h:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/Core/GlobalFunctions.h:
@@ -1824,6 +1838,8 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/Core/EigenBase.h:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/Core/Dot.h:
+
+/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_shift_indices.h:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/Core/DiagonalProduct.h:
 
@@ -2542,6 +2558,8 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: /Users/riccardofrau/Documents/Uni/Era
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/vector_field.cpp:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_base_of.h:
+
+/Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_cluster.cpp:
 
 /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/external/eigen/Eigen/src/SparseCore/SparseCwiseUnaryOp.h:
 

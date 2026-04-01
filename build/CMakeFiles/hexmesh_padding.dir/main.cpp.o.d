@@ -1340,4 +1340,10 @@ CMakeFiles/hexmesh_padding.dir/main.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__thread/thread.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gl/offline_gl_context.h \
   /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/gl/offline_gl_context.cpp \
-  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_transition_schemes.h
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_transition_schemes.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/dual_mesh.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/dual_mesh.cpp \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_cluster.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/export_cluster.cpp \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_shift_indices.h \
+  /Users/riccardofrau/Documents/Uni/Erasmus/Tesi/cinolib/include/cinolib/hex_shift_indices.cpp
