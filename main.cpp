@@ -12,6 +12,7 @@
 #define STR(x) STR_(x)
 
 using namespace cinolib;
+const std::vector<uint> faces_of_poly = {0, 1, 2, 3, 4, 5};
 
 void mesh_singularity(
     AbstractPolyhedralMesh<> &poly_mesh,
@@ -184,7 +185,150 @@ void hex_around_axis(const uint hex_in[8],
         hex_out[6] = hex_in[5];
         hex_out[7] = hex_in[6];
         break;
+
+    default:
+        throw std::runtime_error("Invalid Hex Rotation");
+        break;
     }
+}
+
+// ottieni i vertici di faccia nel cubo "proiettato"
+std::vector<uint> vertices_from_face_local(const std::vector<uint> &verts, const uint fid)
+{
+    std::vector<uint> face_verts;
+    switch (fid)
+    {
+    case 0:
+        // 0,1,2,3
+        face_verts.push_back(verts[0]);
+        face_verts.push_back(verts[1]);
+        face_verts.push_back(verts[2]);
+        face_verts.push_back(verts[3]);
+        break;
+    case 1:
+        // 4,5,6,7
+        face_verts.push_back(verts[4]);
+        face_verts.push_back(verts[5]);
+        face_verts.push_back(verts[6]);
+        face_verts.push_back(verts[7]);
+        break;
+    case 2:
+        // 0,1,4,5
+        face_verts.push_back(verts[0]);
+        face_verts.push_back(verts[1]);
+        face_verts.push_back(verts[4]);
+        face_verts.push_back(verts[5]);
+        break;
+    case 3:
+        // 1,2,5,6
+        face_verts.push_back(verts[1]);
+        face_verts.push_back(verts[2]);
+        face_verts.push_back(verts[5]);
+        face_verts.push_back(verts[6]);
+        break;
+    case 4:
+        // 2,3,6,7
+        face_verts.push_back(verts[2]);
+        face_verts.push_back(verts[3]);
+        face_verts.push_back(verts[6]);
+        face_verts.push_back(verts[7]);
+        break;
+    case 5:
+        // 0,3,4,7
+        face_verts.push_back(verts[0]);
+        face_verts.push_back(verts[3]);
+        face_verts.push_back(verts[4]);
+        face_verts.push_back(verts[7]);
+        break;
+    default:
+        throw std::runtime_error("Invalid Hex Face");
+        // break;
+    }
+    return face_verts;
+}
+
+// ottieni la faccia relativa allo spazio iniziale dati i vertici
+uint face_from_vertices_local(const std::vector<uint> &original_verts, const std::vector<uint> &face_verts)
+{
+    std::vector<uint> pattern;
+    for (auto vert : face_verts)
+    {
+        auto it = std::find(original_verts.begin(), original_verts.end(), vert);
+        uint index = std::distance(original_verts.begin(), it);
+        pattern.push_back(index);
+    }
+    std::sort(pattern.begin(), pattern.end());
+
+    // confronto il pattern con tutti i pattern standard di faccia
+    std::vector<std::vector<uint>> standard_patterns;
+    standard_patterns.push_back({0, 1, 2, 3});
+    standard_patterns.push_back({4, 5, 6, 7});
+    standard_patterns.push_back({0, 1, 4, 5});
+    standard_patterns.push_back({1, 2, 5, 6});
+    standard_patterns.push_back({2, 3, 6, 7});
+    standard_patterns.push_back({0, 3, 4, 7});
+
+    auto it = std::find(standard_patterns.begin(), standard_patterns.end(), pattern);
+    auto index = std::distance(standard_patterns.begin(), it);
+
+    return index;
+}
+
+// verifica che le facce in input corrispondano alle facce del padding statico
+bool check_rotation(const std::vector<uint> &verts_proj, const std::vector<uint> &verts_og, std::vector<uint> faces_to_padd, std::vector<uint> face_static)
+{
+    if (faces_to_padd.size() != face_static.size())
+    {
+        throw std::runtime_error("Number of faces to pad does not match the number of static faces");
+    }
+    bool flag = true;
+    // verifica che ogni faccia da paddare che corrisponda a una faccia statica
+    for (auto fid : face_static)
+    {
+        auto vertices_face = vertices_from_face_local(verts_proj, fid);
+        uint face_id = face_from_vertices_local(verts_og, vertices_face);
+        bool found = std::find(faces_to_padd.begin(), faces_to_padd.end(), face_id) != faces_to_padd.end();
+
+        flag = flag && found;
+    }
+    return flag;
+}
+
+std::vector<uint> arrange_rotation(const std::vector<uint> &verts_og,
+                                   const std::vector<uint> &fids_vec,
+                                   std::vector<uint> &verts_rebase,
+                                   std::vector<uint> &verts_twisted,
+                                   std::vector<uint> faces_static
+
+)
+{
+    std::vector<uint> rotation_indeces;
+    uint i, j;
+    bool rotation = false;
+
+    for (i = 0 ; i < 6; i++)
+    {   
+        // std::cout << "Trying rotation " << i << std::endl;
+        hex_rebase(verts_og.data(), i, verts_rebase.data());
+        for (j = 0; j < 4; j++)
+        {
+            hex_around_axis(verts_rebase.data(), j, verts_twisted.data());
+            rotation = check_rotation(verts_twisted, verts_og, fids_vec, faces_static);
+            // std::cout << "Rotation " << i << " around axis " << j <<  std::endl;
+            if (rotation)
+                break;
+        }
+
+        if (rotation)break;
+
+    }
+
+    if (!rotation) throw std::runtime_error("No valid rotation found for the given faces to pad and static faces.");
+
+    rotation_indeces.push_back(i);
+    rotation_indeces.push_back(j);
+    std::cout << "Rotation found: " << i << " " << j << std::endl;
+    return rotation_indeces;
 }
 
 int main(int argc, char **argv)
@@ -216,24 +360,24 @@ int main(int argc, char **argv)
     DrawablePolyhedralmesh<> poly_mesh(verts, faces, polys, polys_face_winding);
 
     uint pid = 0;
-    std::vector<uint> fids_vec;
+    std::vector<uint> fids_vec; // TODO: vettore delle facce da paddare
     fids_vec.push_back(0);
-    // fids_vec.push_back(1);
-    fids_vec.push_back(2);
+    fids_vec.push_back(1);
+    // fids_vec.push_back(2);
     // fids_vec.push_back(3);
     // fids_vec.push_back(4);
     // fids_vec.push_back(5);
-    uint fid_first = fids_vec[0]; // Scegli la prima faccia del poliedro
-    double lambda = 1 / 3.0;      // posizione di split lungo l'edge
-
-    std::vector<uint> faces_of_poly = {0, 1, 2, 3, 4, 5};
+    double lambda = 1 / 3.0; // posizione di split lungo l'edge
 
     vec3d split_point;
-    std::vector<uint> verts_og = poly_mesh.poly_verts_id(0);
+    std::vector<uint> verts_og = poly_mesh.poly_verts_id(0); // TODO attualmente prendo i vertici del poliedro 0
     std::vector<uint> poly_first_vids, poly_second_vids, poly_third_vids, poly_fourth_vids, poly_fifth_vids, poly_sixth_vids, poly_seventh_vids;
-    std::vector<uint> verts_arranged = verts_og;
+    std::vector<uint> verts_rebase = verts_og;
+    std::vector<uint> verts_twisted = verts_og;
     std::vector<uint> new_vids;
-    hex_rebase(verts_og.data(), 2, verts_arranged.data());
+
+    hex_rebase(verts_og.data(), 3, verts_rebase.data());
+    hex_around_axis(verts_rebase.data(), 0, verts_twisted.data());
 
     switch (fids_vec.size())
     {
@@ -242,21 +386,21 @@ int main(int argc, char **argv)
         std::cout << "Split along face " << fids_vec[0] << std::endl;
         // padding della faccia 0
 
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[4]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[4]);
         new_vids.push_back(poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[5]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[5]);
         new_vids.push_back(poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[6]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[6]);
         new_vids.push_back(poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[7]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[7]);
         new_vids.push_back(poly_mesh.vert_add(split_point));
 
         poly_first_vids.clear();
 
-        poly_first_vids.push_back(verts_arranged[0]);
-        poly_first_vids.push_back(verts_arranged[1]);
-        poly_first_vids.push_back(verts_arranged[2]);
-        poly_first_vids.push_back(verts_arranged[3]);
+        poly_first_vids.push_back(verts_twisted[0]);
+        poly_first_vids.push_back(verts_twisted[1]);
+        poly_first_vids.push_back(verts_twisted[2]);
+        poly_first_vids.push_back(verts_twisted[3]);
         poly_first_vids.push_back(new_vids[0]);
         poly_first_vids.push_back(new_vids[1]);
         poly_first_vids.push_back(new_vids[2]);
@@ -268,10 +412,10 @@ int main(int argc, char **argv)
         poly_second_vids.push_back(new_vids[1]);
         poly_second_vids.push_back(new_vids[2]);
         poly_second_vids.push_back(new_vids[3]);
-        poly_second_vids.push_back(verts_arranged[4]);
-        poly_second_vids.push_back(verts_arranged[5]);
-        poly_second_vids.push_back(verts_arranged[6]);
-        poly_second_vids.push_back(verts_arranged[7]);
+        poly_second_vids.push_back(verts_twisted[4]);
+        poly_second_vids.push_back(verts_twisted[5]);
+        poly_second_vids.push_back(verts_twisted[6]);
+        poly_second_vids.push_back(verts_twisted[7]);
 
         poly_mesh.poly_add(poly_first_vids);
         poly_mesh.poly_add(poly_second_vids);
@@ -280,28 +424,32 @@ int main(int argc, char **argv)
     }
     case 2:
     {
+        
+
         std::cout << "Split along faces " << fids_vec[0] << " and " << fids_vec[1] << std::endl;
         /// caso in cui le facce siano opposte
         if (!poly_mesh.faces_are_adjacent(fids_vec[0], fids_vec[1]))
         {
-            /// padding delle facce 3 e 5
+            std::vector<uint> rotation_found = arrange_rotation(verts_og, fids_vec, verts_rebase, verts_twisted, {3, 5});
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            
+            /// padding statico delle facce 3 e 5
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint AB = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[0]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[0]);
             uint BA = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint CD = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[2]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[2]);
             uint DC = (poly_mesh.vert_add(split_point));
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint EF = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[4]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[4]);
             uint FE = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint GH = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[6]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[6]);
             uint HG = (poly_mesh.vert_add(split_point));
 
             // AB, BA, CD, DC, EF, FE, GH, HG;
@@ -317,24 +465,24 @@ int main(int argc, char **argv)
 
             // A, AB, DC, D, E, EF, HG, H;
             poly_second_vids.clear();
-            poly_second_vids.push_back(verts_arranged[0]); // A
+            poly_second_vids.push_back(verts_twisted[0]); // A
             poly_second_vids.push_back(AB);
             poly_second_vids.push_back(DC);
-            poly_second_vids.push_back(verts_arranged[3]); // D
-            poly_second_vids.push_back(verts_arranged[4]); // E
+            poly_second_vids.push_back(verts_twisted[3]); // D
+            poly_second_vids.push_back(verts_twisted[4]); // E
             poly_second_vids.push_back(EF);
             poly_second_vids.push_back(HG);
-            poly_second_vids.push_back(verts_arranged[7]); // H
+            poly_second_vids.push_back(verts_twisted[7]); // H
 
             // BA, B, C, CD, FE, F, G, GH
             poly_third_vids.clear();
             poly_third_vids.push_back(BA);
-            poly_third_vids.push_back(verts_arranged[1]); // B
-            poly_third_vids.push_back(verts_arranged[2]); // C
+            poly_third_vids.push_back(verts_twisted[1]); // B
+            poly_third_vids.push_back(verts_twisted[2]); // C
             poly_third_vids.push_back(CD);
             poly_third_vids.push_back(FE);
-            poly_third_vids.push_back(verts_arranged[5]); // F
-            poly_third_vids.push_back(verts_arranged[6]); // G
+            poly_third_vids.push_back(verts_twisted[5]); // F
+            poly_third_vids.push_back(verts_twisted[6]); // G
             poly_third_vids.push_back(GH);
 
             poly_mesh.poly_add(poly_first_vids);
@@ -346,49 +494,49 @@ int main(int argc, char **argv)
             // padding delle facce 4 e 5
 
             // bottom face
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint AB = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint CB = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint DB = poly_mesh.vert_add(split_point);
             // top face
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint EF = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint GF = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint HF = poly_mesh.vert_add(split_point);
 
             poly_first_vids.clear();
             poly_first_vids.push_back(AB);
-            poly_first_vids.push_back(verts_arranged[1]); // B
+            poly_first_vids.push_back(verts_twisted[1]); // B
             poly_first_vids.push_back(CB);
             poly_first_vids.push_back(DB);
             poly_first_vids.push_back(EF);
-            poly_first_vids.push_back(verts_arranged[5]); // F
+            poly_first_vids.push_back(verts_twisted[5]); // F
             poly_first_vids.push_back(GF);
             poly_first_vids.push_back(HF);
 
             poly_second_vids.clear();
-            poly_second_vids.push_back(verts_arranged[0]); // A
+            poly_second_vids.push_back(verts_twisted[0]); // A
             poly_second_vids.push_back(AB);
             poly_second_vids.push_back(DB);
-            poly_second_vids.push_back(verts_arranged[3]); // D
-            poly_second_vids.push_back(verts_arranged[4]); // E
+            poly_second_vids.push_back(verts_twisted[3]); // D
+            poly_second_vids.push_back(verts_twisted[4]); // E
             poly_second_vids.push_back(EF);
             poly_second_vids.push_back(HF);
-            poly_second_vids.push_back(verts_arranged[7]); // H
+            poly_second_vids.push_back(verts_twisted[7]); // H
 
             poly_third_vids.clear();
-            poly_third_vids.push_back(verts_arranged[3]); // D
+            poly_third_vids.push_back(verts_twisted[3]); // D
             poly_third_vids.push_back(DB);
             poly_third_vids.push_back(CB);
-            poly_third_vids.push_back(verts_arranged[2]); // C
-            poly_third_vids.push_back(verts_arranged[7]); // H
+            poly_third_vids.push_back(verts_twisted[2]); // C
+            poly_third_vids.push_back(verts_twisted[7]); // H
             poly_third_vids.push_back(HF);
             poly_third_vids.push_back(GF);
-            poly_third_vids.push_back(verts_arranged[6]); // G
+            poly_third_vids.push_back(verts_twisted[6]); // G
 
             poly_mesh.poly_add(poly_first_vids);
             poly_mesh.poly_add(poly_second_vids);
@@ -419,11 +567,11 @@ int main(int argc, char **argv)
             // BD 1-3: n1
             // CD 2-3: n2
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint AD = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint BD = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint CD = poly_mesh.vert_add(split_point);
 
             // top -
@@ -431,11 +579,11 @@ int main(int argc, char **argv)
             // FH 5-7
             // GH 6-7
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint EH = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint FH = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint GH = poly_mesh.vert_add(split_point);
 
             // mid-out -
@@ -444,13 +592,13 @@ int main(int argc, char **argv)
             // CG 2-6: n8
             // DH 3-7: n9
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[4]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[4]);
             uint AE = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint BF = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[6]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[6]);
             uint CG = poly_mesh.vert_add(split_point);
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint DH = poly_mesh.vert_add(split_point);
 
             // mid-in -
@@ -472,7 +620,7 @@ int main(int argc, char **argv)
             poly_first_vids.push_back(ADEH);
             poly_first_vids.push_back(BDFH);
             poly_first_vids.push_back(CDGH);
-            poly_first_vids.push_back(verts_arranged[7]); // H
+            poly_first_vids.push_back(verts_twisted[7]); // H
             poly_first_vids.push_back(EH);
             poly_first_vids.push_back(FH);
             poly_first_vids.push_back(GH);
@@ -480,7 +628,7 @@ int main(int argc, char **argv)
             //  D AD BD CD DH ADEH BDFH CDGH
             poly_second_vids.clear();
 
-            poly_second_vids.push_back(verts_arranged[3]); // D
+            poly_second_vids.push_back(verts_twisted[3]); // D
             poly_second_vids.push_back(AD);
             poly_second_vids.push_back(BD);
             poly_second_vids.push_back(CD);
@@ -492,8 +640,8 @@ int main(int argc, char **argv)
             // C B BD CD CG BF BDFH CDGH
             poly_third_vids.clear();
 
-            poly_third_vids.push_back(verts_arranged[2]); // C
-            poly_third_vids.push_back(verts_arranged[1]); // B
+            poly_third_vids.push_back(verts_twisted[2]); // C
+            poly_third_vids.push_back(verts_twisted[1]); // B
             poly_third_vids.push_back(BD);
             poly_third_vids.push_back(CD);
             poly_third_vids.push_back(CG);
@@ -504,8 +652,8 @@ int main(int argc, char **argv)
             // B, A, AD, BD, BF, AE, ADEH, BDFH;
             poly_fourth_vids.clear();
 
-            poly_fourth_vids.push_back(verts_arranged[1]); // B
-            poly_fourth_vids.push_back(verts_arranged[0]); // A
+            poly_fourth_vids.push_back(verts_twisted[1]); // B
+            poly_fourth_vids.push_back(verts_twisted[0]); // A
             poly_fourth_vids.push_back(AD);
             poly_fourth_vids.push_back(BD);
             poly_fourth_vids.push_back(BF);
@@ -521,10 +669,10 @@ int main(int argc, char **argv)
             poly_fifth_vids.push_back(BDFH);
             poly_fifth_vids.push_back(CDGH);
             poly_fifth_vids.push_back(CG);
-            poly_fifth_vids.push_back(verts_arranged[5]); // F
+            poly_fifth_vids.push_back(verts_twisted[5]); // F
             poly_fifth_vids.push_back(FH);
             poly_fifth_vids.push_back(GH);
-            poly_fifth_vids.push_back(verts_arranged[6]); // G
+            poly_fifth_vids.push_back(verts_twisted[6]); // G
 
             // BF, AE, ADEH, BDFH, F, E, EH, FH;
             poly_sixth_vids.clear();
@@ -533,8 +681,8 @@ int main(int argc, char **argv)
             poly_sixth_vids.push_back(AE);
             poly_sixth_vids.push_back(ADEH);
             poly_sixth_vids.push_back(BDFH);
-            poly_sixth_vids.push_back(verts_arranged[5]); // F
-            poly_sixth_vids.push_back(verts_arranged[4]); // E
+            poly_sixth_vids.push_back(verts_twisted[5]); // F
+            poly_sixth_vids.push_back(verts_twisted[4]); // E
             poly_sixth_vids.push_back(EH);
             poly_sixth_vids.push_back(FH);
 
@@ -549,22 +697,22 @@ int main(int argc, char **argv)
         {
             // padding delle facce 3, 4, e 5
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint AB = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[0]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[0]);
             uint BA = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint DB = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[0]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[0]);
             uint CA = (poly_mesh.vert_add(split_point));
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint EF = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[4]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[4]);
             uint FE = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[4]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[4]);
             uint GE = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint HF = (poly_mesh.vert_add(split_point));
 
             // AB, BA, CA, DB, EF, FE, GE ,HF
@@ -581,34 +729,34 @@ int main(int argc, char **argv)
 
             // A, AB, DB, D, E, EF, HF, H;
             poly_second_vids.clear();
-            poly_second_vids.push_back(verts_arranged[0]); // A
+            poly_second_vids.push_back(verts_twisted[0]); // A
             poly_second_vids.push_back(AB);
             poly_second_vids.push_back(DB);
-            poly_second_vids.push_back(verts_arranged[3]); // D
-            poly_second_vids.push_back(verts_arranged[4]); // E
+            poly_second_vids.push_back(verts_twisted[3]); // D
+            poly_second_vids.push_back(verts_twisted[4]); // E
             poly_second_vids.push_back(EF);
             poly_second_vids.push_back(HF);
-            poly_second_vids.push_back(verts_arranged[7]); // H
+            poly_second_vids.push_back(verts_twisted[7]); // H
 
             // D, DB, CA, C, H, HF, GE, G;
             poly_third_vids.clear();
-            poly_third_vids.push_back(verts_arranged[3]); // D
+            poly_third_vids.push_back(verts_twisted[3]); // D
             poly_third_vids.push_back(DB);
             poly_third_vids.push_back(CA);
-            poly_third_vids.push_back(verts_arranged[2]); // C
-            poly_third_vids.push_back(verts_arranged[7]); // H
+            poly_third_vids.push_back(verts_twisted[2]); // C
+            poly_third_vids.push_back(verts_twisted[7]); // H
             poly_third_vids.push_back(HF);
             poly_third_vids.push_back(GE);
-            poly_third_vids.push_back(verts_arranged[6]); // G
+            poly_third_vids.push_back(verts_twisted[6]); // G
 
             // B, C, CA, BA, F, G, GE, FE
             poly_fourth_vids.clear();
-            poly_fourth_vids.push_back(verts_arranged[1]); // B
-            poly_fourth_vids.push_back(verts_arranged[2]); // C
+            poly_fourth_vids.push_back(verts_twisted[1]); // B
+            poly_fourth_vids.push_back(verts_twisted[2]); // C
             poly_fourth_vids.push_back(CA);
             poly_fourth_vids.push_back(BA);
-            poly_fourth_vids.push_back(verts_arranged[5]); // F
-            poly_fourth_vids.push_back(verts_arranged[6]); // G
+            poly_fourth_vids.push_back(verts_twisted[5]); // F
+            poly_fourth_vids.push_back(verts_twisted[6]); // G
             poly_fourth_vids.push_back(GE);
             poly_fourth_vids.push_back(FE);
 
@@ -624,8 +772,8 @@ int main(int argc, char **argv)
     {
         std::cout << "Split along faces " << fids_vec[0] << ", " << fids_vec[1] << ", " << fids_vec[2] << " and " << fids_vec[3] << std::endl;
         std::vector<uint> faces_not_to_pad;
-        // verifica che le facce escluse dal padding siano adiacenti
 
+        // verifica che le facce escluse dal padding siano adiacenti
         for (auto face : faces_of_poly)
         {
             if (std::find(fids_vec.begin(), fids_vec.end(), face) == fids_vec.end())
@@ -639,22 +787,22 @@ int main(int argc, char **argv)
             // caso in cui le facce da escludere siano adiacenti tra loro
             // padding delle facce 0, 1, 2 e 3
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint AH = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint BH = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint CH = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint DH = (poly_mesh.vert_add(split_point));
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint ED = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint FD = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint GD = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint HD = (poly_mesh.vert_add(split_point));
 
             // AH, BH, CH, DH, ED, FD, GD, HD
@@ -670,10 +818,10 @@ int main(int argc, char **argv)
 
             // A, B, C, D, AH, BH, CH, DH;
             poly_second_vids.clear();
-            poly_second_vids.push_back(verts_arranged[0]); // A
-            poly_second_vids.push_back(verts_arranged[1]); // B
-            poly_second_vids.push_back(verts_arranged[2]); // C
-            poly_second_vids.push_back(verts_arranged[3]); // D
+            poly_second_vids.push_back(verts_twisted[0]); // A
+            poly_second_vids.push_back(verts_twisted[1]); // B
+            poly_second_vids.push_back(verts_twisted[2]); // C
+            poly_second_vids.push_back(verts_twisted[3]); // D
             poly_second_vids.push_back(AH);
             poly_second_vids.push_back(BH);
             poly_second_vids.push_back(CH);
@@ -685,32 +833,32 @@ int main(int argc, char **argv)
             poly_third_vids.push_back(FD);
             poly_third_vids.push_back(GD);
             poly_third_vids.push_back(HD);
-            poly_third_vids.push_back(verts_arranged[4]); // E
-            poly_third_vids.push_back(verts_arranged[5]); // F
-            poly_third_vids.push_back(verts_arranged[6]); // G
-            poly_third_vids.push_back(verts_arranged[7]); // H
+            poly_third_vids.push_back(verts_twisted[4]); // E
+            poly_third_vids.push_back(verts_twisted[5]); // F
+            poly_third_vids.push_back(verts_twisted[6]); // G
+            poly_third_vids.push_back(verts_twisted[7]); // H
 
             // B, C, CH, BH, F, G, GD, FD;
 
             poly_fourth_vids.clear();
-            poly_fourth_vids.push_back(verts_arranged[1]); // B
-            poly_fourth_vids.push_back(verts_arranged[2]); // C
+            poly_fourth_vids.push_back(verts_twisted[1]); // B
+            poly_fourth_vids.push_back(verts_twisted[2]); // C
             poly_fourth_vids.push_back(CH);
             poly_fourth_vids.push_back(BH);
-            poly_fourth_vids.push_back(verts_arranged[5]); // F
-            poly_fourth_vids.push_back(verts_arranged[6]); // G
+            poly_fourth_vids.push_back(verts_twisted[5]); // F
+            poly_fourth_vids.push_back(verts_twisted[6]); // G
             poly_fourth_vids.push_back(GD);
             poly_fourth_vids.push_back(FD);
 
             // A, B, BH, AH, E, F, FD, ED
 
             poly_fifth_vids.clear();
-            poly_fifth_vids.push_back(verts_arranged[0]); // A
-            poly_fifth_vids.push_back(verts_arranged[1]); // B
+            poly_fifth_vids.push_back(verts_twisted[0]); // A
+            poly_fifth_vids.push_back(verts_twisted[1]); // B
             poly_fifth_vids.push_back(BH);
             poly_fifth_vids.push_back(AH);
-            poly_fifth_vids.push_back(verts_arranged[4]); // E
-            poly_fifth_vids.push_back(verts_arranged[5]); // F
+            poly_fifth_vids.push_back(verts_twisted[4]); // E
+            poly_fifth_vids.push_back(verts_twisted[5]); // F
             poly_fifth_vids.push_back(FD);
             poly_fifth_vids.push_back(ED);
 
@@ -725,22 +873,22 @@ int main(int argc, char **argv)
             // caso in cui le facce da escludere siano opposte
             // padding delle facce 2, 3, 4 e 5
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[2]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[2]);
             uint AC = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[3]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint BD = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[0]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[0]);
             uint CA = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[1]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint DB = (poly_mesh.vert_add(split_point));
 
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[6]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[6]);
             uint EG = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[7]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint FH = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[4]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[4]);
             uint GE = (poly_mesh.vert_add(split_point));
-            split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[5]);
+            split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[5]);
             uint HF = (poly_mesh.vert_add(split_point));
 
             // AC, BD, CA, DB, EG, FH, GF, HF
@@ -756,12 +904,12 @@ int main(int argc, char **argv)
 
             // A, D, DB, AC, E, H, HF, EG
             poly_second_vids.clear();
-            poly_second_vids.push_back(verts_arranged[0]); // A
-            poly_second_vids.push_back(verts_arranged[3]); // D
+            poly_second_vids.push_back(verts_twisted[0]); // A
+            poly_second_vids.push_back(verts_twisted[3]); // D
             poly_second_vids.push_back(DB);
             poly_second_vids.push_back(AC);
-            poly_second_vids.push_back(verts_arranged[4]); // E
-            poly_second_vids.push_back(verts_arranged[7]); // H
+            poly_second_vids.push_back(verts_twisted[4]); // E
+            poly_second_vids.push_back(verts_twisted[7]); // H
             poly_second_vids.push_back(HF);
             poly_second_vids.push_back(EG);
 
@@ -769,32 +917,32 @@ int main(int argc, char **argv)
             poly_third_vids.clear();
             poly_third_vids.push_back(DB);
             poly_third_vids.push_back(CA);
-            poly_third_vids.push_back(verts_arranged[2]); // C
-            poly_third_vids.push_back(verts_arranged[3]); // D
+            poly_third_vids.push_back(verts_twisted[2]); // C
+            poly_third_vids.push_back(verts_twisted[3]); // D
             poly_third_vids.push_back(HF);
             poly_third_vids.push_back(GE);
-            poly_third_vids.push_back(verts_arranged[6]); // G
-            poly_third_vids.push_back(verts_arranged[7]); // H
+            poly_third_vids.push_back(verts_twisted[6]); // G
+            poly_third_vids.push_back(verts_twisted[7]); // H
 
             // B, C, CA, BD, F, G, GE, FH
             poly_fourth_vids.clear();
-            poly_fourth_vids.push_back(verts_arranged[1]); // B
-            poly_fourth_vids.push_back(verts_arranged[2]); // C
+            poly_fourth_vids.push_back(verts_twisted[1]); // B
+            poly_fourth_vids.push_back(verts_twisted[2]); // C
             poly_fourth_vids.push_back(CA);
             poly_fourth_vids.push_back(BD);
-            poly_fourth_vids.push_back(verts_arranged[5]); // F
-            poly_fourth_vids.push_back(verts_arranged[6]); // G
+            poly_fourth_vids.push_back(verts_twisted[5]); // F
+            poly_fourth_vids.push_back(verts_twisted[6]); // G
             poly_fourth_vids.push_back(GE);
             poly_fourth_vids.push_back(FH);
 
             // B, A, AC, BD, F, E, EG, FH
             poly_fifth_vids.clear();
-            poly_fifth_vids.push_back(verts_arranged[1]); // B
-            poly_fifth_vids.push_back(verts_arranged[0]); // A
+            poly_fifth_vids.push_back(verts_twisted[1]); // B
+            poly_fifth_vids.push_back(verts_twisted[0]); // A
             poly_fifth_vids.push_back(AC);
             poly_fifth_vids.push_back(BD);
-            poly_fifth_vids.push_back(verts_arranged[5]); // F
-            poly_fifth_vids.push_back(verts_arranged[4]); // E
+            poly_fifth_vids.push_back(verts_twisted[5]); // F
+            poly_fifth_vids.push_back(verts_twisted[4]); // E
             poly_fifth_vids.push_back(EG);
             poly_fifth_vids.push_back(FH);
 
@@ -811,22 +959,22 @@ int main(int argc, char **argv)
     {
         std::cout << "Split along faces " << fids_vec[0] << ", " << fids_vec[1] << ", " << fids_vec[2] << ", " << fids_vec[3] << " and " << fids_vec[4] << std::endl;
 
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[6]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[6]);
         uint AG = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[7]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[7]);
         uint BH = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[7]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[7]);
         uint CH = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[6]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[6]);
         uint DG = (poly_mesh.vert_add(split_point));
 
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[2]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[2]);
         uint EC = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[3]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[3]);
         uint FD = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[3]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[3]);
         uint GD = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[2]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[2]);
         uint HC = (poly_mesh.vert_add(split_point));
 
         // AG, BH, CH DG, EC, FD, GD, HC
@@ -842,10 +990,10 @@ int main(int argc, char **argv)
 
         // A, B, C, D, AG, BH, CH, DG;
         poly_second_vids.clear();
-        poly_second_vids.push_back(verts_arranged[0]); // A
-        poly_second_vids.push_back(verts_arranged[1]); // B
-        poly_second_vids.push_back(verts_arranged[2]); // C
-        poly_second_vids.push_back(verts_arranged[3]); // D
+        poly_second_vids.push_back(verts_twisted[0]); // A
+        poly_second_vids.push_back(verts_twisted[1]); // B
+        poly_second_vids.push_back(verts_twisted[2]); // C
+        poly_second_vids.push_back(verts_twisted[3]); // D
         poly_second_vids.push_back(AG);
         poly_second_vids.push_back(BH);
         poly_second_vids.push_back(CH);
@@ -857,42 +1005,42 @@ int main(int argc, char **argv)
         poly_third_vids.push_back(FD);
         poly_third_vids.push_back(GD);
         poly_third_vids.push_back(HC);
-        poly_third_vids.push_back(verts_arranged[4]); // E
-        poly_third_vids.push_back(verts_arranged[5]); // F
-        poly_third_vids.push_back(verts_arranged[6]); // G
-        poly_third_vids.push_back(verts_arranged[7]); // H
+        poly_third_vids.push_back(verts_twisted[4]); // E
+        poly_third_vids.push_back(verts_twisted[5]); // F
+        poly_third_vids.push_back(verts_twisted[6]); // G
+        poly_third_vids.push_back(verts_twisted[7]); // H
 
         // A, D, DG, AG, E, H, HC, EC;
         poly_fourth_vids.clear();
-        poly_fourth_vids.push_back(verts_arranged[0]); // A
-        poly_fourth_vids.push_back(verts_arranged[3]); // D
+        poly_fourth_vids.push_back(verts_twisted[0]); // A
+        poly_fourth_vids.push_back(verts_twisted[3]); // D
         poly_fourth_vids.push_back(DG);
         poly_fourth_vids.push_back(AG);
-        poly_fourth_vids.push_back(verts_arranged[4]); // E
-        poly_fourth_vids.push_back(verts_arranged[7]); // H
+        poly_fourth_vids.push_back(verts_twisted[4]); // E
+        poly_fourth_vids.push_back(verts_twisted[7]); // H
         poly_fourth_vids.push_back(HC);
         poly_fourth_vids.push_back(EC);
 
         // B, C, CH, BH, F, G, GD, FD;
 
         poly_fifth_vids.clear();
-        poly_fifth_vids.push_back(verts_arranged[1]); // B
-        poly_fifth_vids.push_back(verts_arranged[2]); // C
+        poly_fifth_vids.push_back(verts_twisted[1]); // B
+        poly_fifth_vids.push_back(verts_twisted[2]); // C
         poly_fifth_vids.push_back(CH);
         poly_fifth_vids.push_back(BH);
-        poly_fifth_vids.push_back(verts_arranged[5]); // F
-        poly_fifth_vids.push_back(verts_arranged[6]); // G
+        poly_fifth_vids.push_back(verts_twisted[5]); // F
+        poly_fifth_vids.push_back(verts_twisted[6]); // G
         poly_fifth_vids.push_back(GD);
         poly_fifth_vids.push_back(FD);
 
         // A, B, BH, AG, E, F, FD, EC;
         poly_sixth_vids.clear();
-        poly_sixth_vids.push_back(verts_arranged[0]); // A
-        poly_sixth_vids.push_back(verts_arranged[1]); // B
+        poly_sixth_vids.push_back(verts_twisted[0]); // A
+        poly_sixth_vids.push_back(verts_twisted[1]); // B
         poly_sixth_vids.push_back(BH);
         poly_sixth_vids.push_back(AG);
-        poly_sixth_vids.push_back(verts_arranged[4]); // E
-        poly_sixth_vids.push_back(verts_arranged[5]); // F
+        poly_sixth_vids.push_back(verts_twisted[4]); // E
+        poly_sixth_vids.push_back(verts_twisted[5]); // F
         poly_sixth_vids.push_back(FD);
         poly_sixth_vids.push_back(EC);
 
@@ -909,22 +1057,22 @@ int main(int argc, char **argv)
     {
         std::cout << "Split along  all faces" << std::endl;
 
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[0]) + lambda * poly_mesh.vert(verts_arranged[6]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[6]);
         uint AG = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[1]) + lambda * poly_mesh.vert(verts_arranged[7]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[1]) + lambda * poly_mesh.vert(verts_twisted[7]);
         uint BH = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[2]) + lambda * poly_mesh.vert(verts_arranged[4]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[2]) + lambda * poly_mesh.vert(verts_twisted[4]);
         uint CE = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[3]) + lambda * poly_mesh.vert(verts_arranged[5]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[3]) + lambda * poly_mesh.vert(verts_twisted[5]);
         uint DF = (poly_mesh.vert_add(split_point));
 
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[4]) + lambda * poly_mesh.vert(verts_arranged[2]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[4]) + lambda * poly_mesh.vert(verts_twisted[2]);
         uint EC = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[5]) + lambda * poly_mesh.vert(verts_arranged[3]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[5]) + lambda * poly_mesh.vert(verts_twisted[3]);
         uint FD = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[6]) + lambda * poly_mesh.vert(verts_arranged[0]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[6]) + lambda * poly_mesh.vert(verts_twisted[0]);
         uint GA = (poly_mesh.vert_add(split_point));
-        split_point = (1 - lambda) * poly_mesh.vert(verts_arranged[7]) + lambda * poly_mesh.vert(verts_arranged[1]);
+        split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[7]) + lambda * poly_mesh.vert(verts_twisted[1]);
         uint HB = (poly_mesh.vert_add(split_point));
 
         // AG, BH, CE, DF, EC, FD, GA, HB;
@@ -940,10 +1088,10 @@ int main(int argc, char **argv)
 
         // A, B, C, D, AG, BH, CE, DF;
         poly_second_vids.clear();
-        poly_second_vids.push_back(verts_arranged[0]); // A
-        poly_second_vids.push_back(verts_arranged[1]); // B
-        poly_second_vids.push_back(verts_arranged[2]); // C
-        poly_second_vids.push_back(verts_arranged[3]); // D
+        poly_second_vids.push_back(verts_twisted[0]); // A
+        poly_second_vids.push_back(verts_twisted[1]); // B
+        poly_second_vids.push_back(verts_twisted[2]); // C
+        poly_second_vids.push_back(verts_twisted[3]); // D
         poly_second_vids.push_back(AG);
         poly_second_vids.push_back(BH);
         poly_second_vids.push_back(CE);
@@ -955,41 +1103,41 @@ int main(int argc, char **argv)
         poly_third_vids.push_back(FD);
         poly_third_vids.push_back(GA);
         poly_third_vids.push_back(HB);
-        poly_third_vids.push_back(verts_arranged[4]); // E
-        poly_third_vids.push_back(verts_arranged[5]); // F
-        poly_third_vids.push_back(verts_arranged[6]); // G
-        poly_third_vids.push_back(verts_arranged[7]); // H
+        poly_third_vids.push_back(verts_twisted[4]); // E
+        poly_third_vids.push_back(verts_twisted[5]); // F
+        poly_third_vids.push_back(verts_twisted[6]); // G
+        poly_third_vids.push_back(verts_twisted[7]); // H
 
         // DF, CE, C, D, HB, GA, G, H;
         poly_fourth_vids.clear();
         poly_fourth_vids.push_back(DF);
         poly_fourth_vids.push_back(CE);
-        poly_fourth_vids.push_back(verts_arranged[2]); // C
-        poly_fourth_vids.push_back(verts_arranged[3]); // D
+        poly_fourth_vids.push_back(verts_twisted[2]); // C
+        poly_fourth_vids.push_back(verts_twisted[3]); // D
         poly_fourth_vids.push_back(HB);
         poly_fourth_vids.push_back(GA);
-        poly_fourth_vids.push_back(verts_arranged[6]); // G
-        poly_fourth_vids.push_back(verts_arranged[7]); // H
+        poly_fourth_vids.push_back(verts_twisted[6]); // G
+        poly_fourth_vids.push_back(verts_twisted[7]); // H
 
         // A, B, BH, AG, E, F, FD, EC;
         poly_fifth_vids.clear();
-        poly_fifth_vids.push_back(verts_arranged[0]); // A
-        poly_fifth_vids.push_back(verts_arranged[1]); // B
+        poly_fifth_vids.push_back(verts_twisted[0]); // A
+        poly_fifth_vids.push_back(verts_twisted[1]); // B
         poly_fifth_vids.push_back(BH);
         poly_fifth_vids.push_back(AG);
-        poly_fifth_vids.push_back(verts_arranged[4]); // E
-        poly_fifth_vids.push_back(verts_arranged[5]); // F
+        poly_fifth_vids.push_back(verts_twisted[4]); // E
+        poly_fifth_vids.push_back(verts_twisted[5]); // F
         poly_fifth_vids.push_back(FD);
         poly_fifth_vids.push_back(EC);
 
         // B, C, CE, BH, F, G, GA, FD;
         poly_sixth_vids.clear();
-        poly_sixth_vids.push_back(verts_arranged[1]); // B
-        poly_sixth_vids.push_back(verts_arranged[2]); // C
+        poly_sixth_vids.push_back(verts_twisted[1]); // B
+        poly_sixth_vids.push_back(verts_twisted[2]); // C
         poly_sixth_vids.push_back(CE);
         poly_sixth_vids.push_back(BH);
-        poly_sixth_vids.push_back(verts_arranged[5]); // F
-        poly_sixth_vids.push_back(verts_arranged[6]); // G
+        poly_sixth_vids.push_back(verts_twisted[5]); // F
+        poly_sixth_vids.push_back(verts_twisted[6]); // G
         poly_sixth_vids.push_back(GA);
         poly_sixth_vids.push_back(FD);
 
@@ -997,12 +1145,12 @@ int main(int argc, char **argv)
         poly_seventh_vids.clear();
         poly_seventh_vids.push_back(AG);
         poly_seventh_vids.push_back(DF);
-        poly_seventh_vids.push_back(verts_arranged[3]); // D
-        poly_seventh_vids.push_back(verts_arranged[0]); // A
+        poly_seventh_vids.push_back(verts_twisted[3]); // D
+        poly_seventh_vids.push_back(verts_twisted[0]); // A
         poly_seventh_vids.push_back(EC);
         poly_seventh_vids.push_back(HB);
-        poly_seventh_vids.push_back(verts_arranged[7]); // H
-        poly_seventh_vids.push_back(verts_arranged[4]); // E
+        poly_seventh_vids.push_back(verts_twisted[7]); // H
+        poly_seventh_vids.push_back(verts_twisted[4]); // E
 
         poly_mesh.poly_add(poly_first_vids);
         poly_mesh.poly_add(poly_second_vids);
