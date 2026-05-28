@@ -1219,14 +1219,11 @@ int main(int argc, char **argv)
 
     poly_mesh.poly_fix_orientation(); // orientamento coerente dei poliedri
 
-    // pad errato
-    // pad di 0, 1, 5 invece di 0, 3, 4
     pad_faces(poly_mesh, pid, surf_flags[pid]);
     // for (auto v : poly_mesh.poly_verts_id(pid))
     // {
     //     std::cout << "Vertex ID: " << v << std::endl;
     // }
-
     // for (auto f : poly_mesh.poly_faces_id(pid))
     // {
     //     std::cout << "Face ID: " << f << std::endl;
