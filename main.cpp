@@ -270,51 +270,27 @@ uint face_from_vertices_local(const std::vector<uint> &original_verts, const std
 }
 
 // verifica che le facce da paddare (input og) corrispondano alle facce dello schema statico (projected)
-bool check_rotation(const std::vector<uint> &verts_proj, const std::vector<uint> &verts_og, std::vector<uint> faces_to_pad, std::vector<uint> face_static)
+bool check_rotation(const std::vector<std::unordered_set<uint>> &vertices_pjface, const std::vector<std::unordered_set<uint>> &vertices_ogface, std::vector<uint> faces_to_pad, std::vector<uint> face_static)
 {
     if (faces_to_pad.size() != face_static.size())
     {
         throw std::runtime_error("Number of faces to pad does not match the number of static faces");
     }
 
-    // facce con la configurazione iniziale
-    std::vector<std::unordered_set<uint>> vertices_ogface(6), vertices_pjface(6);
-    for (int i = 0; i < 6; i++)
-    {
-        vertices_ogface[i] = vertices_from_face(verts_og, i);
-        // std::cout << "Faccia originale " << i << " con vertici: ";
-        // for (auto vert : vertices_ogface[i])
-        // {
-        //     std::cout << vert << " ";
-        // }
-        // std::cout << std::endl;
-    }
-    // facce con la configurazione proiettata
-    for (int i = 0; i < 6; i++)
-    {
-        vertices_pjface[i] = vertices_from_face(verts_proj, i);
-        // std::cout << "Faccia proiettata " << i << " con vertici: ";
-        // for (auto vert : vertices_pjface[i])
-        // {
-        //     std::cout << vert << " ";
-        // }
-        // std::cout << std::endl; 
-    }
-
     bool flag = true;
     for (auto fid : face_static)
     {
-        uint correspondence_face_id=-1;
-        for (int i = 0; i<6;i++){
-           if (vertices_pjface[fid] == vertices_ogface[i])
-           { 
-            correspondence_face_id = i;
-            break;
-           }
+        uint correspondence_face_id = -1;
+        for (int i = 0; i < 6; i++)
+        {
+            if (vertices_pjface[fid] == vertices_ogface[i])
+            {
+                correspondence_face_id = i;
+                break;
+            }
         }
-        //std::cout << "La faccia statica " << fid << " corrisponde alla faccia originale " << correspondence_face_id << std::endl;
 
-        //faces to pad è della configurazione originale
+        // faces to pad è della configurazione originale
         bool found = std::find(faces_to_pad.begin(), faces_to_pad.end(), correspondence_face_id) != faces_to_pad.end();
         flag = flag && found;
     }
@@ -325,13 +301,15 @@ std::vector<uint> arrange_rotation(const std::vector<uint> &verts_og,
                                    const std::vector<uint> &faces_to_pad,
                                    std::vector<uint> &verts_rebase,
                                    std::vector<uint> &verts_twisted,
-                                   std::vector<uint> faces_static
+                                   std::vector<uint> faces_static,
+                                   std::vector<std::unordered_set<uint>> &vertices_ogface
 
 )
 {
     std::vector<uint> rotation_indeces;
     uint i, j;
     bool rotation = false;
+    std::vector<std::unordered_set<uint>> vertices_pjface(6);
 
     for (i = 0; i < 6; i++)
     {
@@ -340,8 +318,14 @@ std::vector<uint> arrange_rotation(const std::vector<uint> &verts_og,
         for (j = 0; j < 4; j++)
         {
             hex_around_axis(verts_rebase.data(), j, verts_twisted.data());
-            rotation = check_rotation(verts_twisted, verts_og, faces_to_pad, faces_static);
-            // std::cout << "Rotation " << i << " around axis " << j <<  std::endl;
+
+            // vertici di faccia con la configurazione proiettata
+            for (int i = 0; i < 6; i++)
+            {
+                vertices_pjface[i] = vertices_from_face(verts_twisted, i);
+            }
+
+            rotation = check_rotation(vertices_pjface, vertices_ogface, faces_to_pad, faces_static);
             if (rotation)
                 break;
         }
@@ -355,11 +339,11 @@ std::vector<uint> arrange_rotation(const std::vector<uint> &verts_og,
 
     rotation_indeces.push_back(i);
     rotation_indeces.push_back(j);
-    std::cout << "Rotation found: " << i << " " << j << std::endl;
+    //std::cout << "Rotation found: " << i << " " << j << std::endl;
     return rotation_indeces;
 }
 
-void pad_faces(
+bool pad_faces(
     DrawableHexmesh<> &poly_mesh,
     const uint pid,
     const std::vector<uint> faces_to_pad)
@@ -369,24 +353,50 @@ void pad_faces(
 
     vec3d split_point;
     std::vector<uint> verts_og = poly_mesh.poly_verts_id(pid);
-   
+
     std::vector<std::vector<uint>> new_polys_vids;
     std::vector<uint> verts_rebase = verts_og;
     std::vector<uint> verts_twisted = verts_og;
     std::vector<uint> new_single_poly_vids;
     std::vector<uint> new_vids;
 
-    hex_rebase(verts_og.data(), 3, verts_rebase.data());
-    hex_around_axis(verts_rebase.data(), 0, verts_twisted.data());
+    // vertici di faccia con la configurazione iniziale
+    std::vector<std::unordered_set<uint>> vertices_ogface(6);
+    for (int i = 0; i < 6; i++)
+    {
+        vertices_ogface[i] = vertices_from_face(verts_og, i);
+    }
 
+    // converto faces to pad dal fid di mesh al valore singolo del poliedro
+    // per fare questo ottengo i vertici delle facce da paddare e lo ricerco nella configurazione tradotta precedentemente
+
+    // key = fid, value = set di vertici
+    std::vector<uint> faces_to_pad_converted(faces_to_pad.size());
+    for (uint i = 0; i < faces_to_pad.size(); i++)
+    {
+        uint fid = faces_to_pad[i];
+        std::unordered_set<uint> face_verts;
+        auto f = poly_mesh.face_verts_id(fid);
+        face_verts.insert(f.begin(), f.end());
+
+        for (uint j = 0; j < 6; j++) //  verifico a quale faccia corrisponda la singola faccia da paddare nella configurazione tradotta
+        {
+            if (vertices_ogface[j] == face_verts)
+            {
+                faces_to_pad_converted[i] = j;
+                break;
+            }
+        }
+        
+    }
 
     bool padding_flag = true;
-    switch (faces_to_pad.size())
+    switch (faces_to_pad_converted.size())
     {
     case 1:
     {
-        std::cout << "Split along face " << faces_to_pad[0] << std::endl;
-        arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {0});
+        //std::cout << "Split along face " << faces_to_pad_converted[0] << std::endl;
+        arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0}, vertices_ogface);
         // padding della faccia 0
 
         split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[4]);
@@ -431,12 +441,12 @@ void pad_faces(
     case 2:
     {
 
-        std::cout << "Split along faces " << faces_to_pad[0] << " and " << faces_to_pad[1] << std::endl;
+        //std::cout << "Split along faces " << faces_to_pad_converted[0] << " and " << faces_to_pad_converted[1] << std::endl;
         /// caso in cui le facce siano opposte
-        if (!poly_mesh.faces_are_adjacent(faces_to_pad[0], faces_to_pad[1]))
+        if (!poly_mesh.faces_are_adjacent(faces_to_pad_converted[0], faces_to_pad_converted[1]))
         {
             // padding delle facce 1 e 3
-            std::vector<uint> rotation_found = arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {3, 1});
+            std::vector<uint> rotation_found = arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {3, 1}, vertices_ogface);
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint AB = (poly_mesh.vert_add(split_point));
@@ -500,7 +510,7 @@ void pad_faces(
             // caso in cui le facce siano adiacenti
 
             // padding delle facce 3 e 5
-            std::vector<uint> rotation_found = arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {3, 5});
+            std::vector<uint> rotation_found = arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {3, 5}, vertices_ogface);
 
             // bottom face
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
@@ -556,18 +566,18 @@ void pad_faces(
     }
     case 3:
     {
-        std::cout << "Split along faces " << faces_to_pad[0] << ", " << faces_to_pad[1] << " and " << faces_to_pad[2] << std::endl;
+        //std::cout << "Split along faces " << faces_to_pad_converted[0] << ", " << faces_to_pad_converted[1] << " and " << faces_to_pad_converted[2] << std::endl;
         // facce ad angolo, tutte le facce sono adiacenti tra loro
 
         bool corner =
-            (poly_mesh.faces_are_adjacent(faces_to_pad[0], faces_to_pad[1]) &&
-             poly_mesh.faces_are_adjacent(faces_to_pad[1], faces_to_pad[2]) &&
-             poly_mesh.faces_are_adjacent(faces_to_pad[2], faces_to_pad[0]));
+            (poly_mesh.faces_are_adjacent(faces_to_pad_converted[0], faces_to_pad_converted[1]) &&
+             poly_mesh.faces_are_adjacent(faces_to_pad_converted[1], faces_to_pad_converted[2]) &&
+             poly_mesh.faces_are_adjacent(faces_to_pad_converted[2], faces_to_pad_converted[0]));
 
         if (corner)
         {
             // padding delle facce 0,1,4
-            arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {0,1,4});
+            arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0, 1, 4}, vertices_ogface);
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[3]);
             uint AD = poly_mesh.vert_add(split_point);
@@ -677,7 +687,7 @@ void pad_faces(
         else // facce a forma di U
         {
             // padding delle facce 5, 1, 3
-            arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {5, 1, 3});
+            arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {5, 1, 3}, vertices_ogface);
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[1]);
             uint AB = (poly_mesh.vert_add(split_point));
@@ -752,13 +762,13 @@ void pad_faces(
     }
     case 4:
     {
-        std::cout << "Split along faces " << faces_to_pad[0] << ", " << faces_to_pad[1] << ", " << faces_to_pad[2] << " and " << faces_to_pad[3] << std::endl;
+        //std::cout << "Split along faces " << faces_to_pad_converted[0] << ", " << faces_to_pad_converted[1] << ", " << faces_to_pad_converted[2] << " and " << faces_to_pad_converted[3] << std::endl;
         std::vector<uint> faces_not_to_pad;
 
         // verifica che le facce escluse dal padding siano adiacenti
         for (auto face : faces_of_poly)
         {
-            if (std::find(faces_to_pad.begin(), faces_to_pad.end(), face) == faces_to_pad.end())
+            if (std::find(faces_to_pad_converted.begin(), faces_to_pad_converted.end(), face) == faces_to_pad_converted.end())
             {
                 faces_not_to_pad.push_back(face);
             }
@@ -768,7 +778,7 @@ void pad_faces(
         {
             // caso in cui le facce da escludere siano adiacenti tra loro
             // padding delle facce 0, 1, 2, 4
-            arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {0, 1, 2, 4});
+            arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0, 1, 2, 4}, vertices_ogface);
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[7]);
             uint AH = (poly_mesh.vert_add(split_point));
@@ -856,7 +866,7 @@ void pad_faces(
         {
             // caso in cui le facce da escludere siano opposte
             // padding delle facce 1, 3, 4 e 5
-            arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {1, 3, 4, 5});
+            arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {1, 3, 4, 5}, vertices_ogface);
 
             split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[2]);
             uint AC = (poly_mesh.vert_add(split_point));
@@ -943,10 +953,10 @@ void pad_faces(
     }
     case 5:
     {
-        std::cout << "Split along faces " << faces_to_pad[0] << ", " << faces_to_pad[1] << ", " << faces_to_pad[2] << ", " << faces_to_pad[3] << " and " << faces_to_pad[4] << std::endl;
+        //std::cout << "Split along faces " << faces_to_pad_converted[0] << ", " << faces_to_pad_converted[1] << ", " << faces_to_pad_converted[2] << ", " << faces_to_pad_converted[3] << " and " << faces_to_pad_converted[4] << std::endl;
 
         // padding delle facce 0, 1, 2, 3, 4
-        arrange_rotation(verts_og, faces_to_pad, verts_rebase, verts_twisted, {0, 1, 2, 3, 4});
+        arrange_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0, 1, 2, 3, 4}, vertices_ogface);
 
         split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[6]);
         uint AG = (poly_mesh.vert_add(split_point));
@@ -1045,7 +1055,7 @@ void pad_faces(
     }
     case 6:
     {
-        std::cout << "Split along  all faces" << std::endl;
+        //std::cout << "Split along  all faces" << std::endl;
         // padding di tutte le facce, nessuna rotazione necessaria
 
         split_point = (1 - lambda) * poly_mesh.vert(verts_twisted[0]) + lambda * poly_mesh.vert(verts_twisted[6]);
@@ -1164,12 +1174,11 @@ void pad_faces(
         poly_mesh.poly_add(poly_vids);
     }
 
-    if (padding_flag)
-        poly_mesh.poly_remove(pid); // rimuovo il poliedro originale
-
+   
     poly_mesh.update_bbox();
     poly_mesh.update_quality();
     poly_mesh.update_normals();
+    return padding_flag;
 }
 
 int main(int argc, char **argv)
@@ -1177,34 +1186,33 @@ int main(int argc, char **argv)
     using namespace cinolib;
 
     // Vertici del cubo unitario (v0–v7)
-    std::vector<vec3d> verts = {};
-    verts.push_back(vec3d{0, 0, 0});
-    verts.push_back(vec3d{0, 0, 1});
-    verts.push_back(vec3d{1, 0, 1});
-    verts.push_back(vec3d{1, 0, 0});
-    verts.push_back(vec3d{0, 1, 0});
-    verts.push_back(vec3d{0, 1, 1});
-    verts.push_back(vec3d{1, 1, 1});
-    verts.push_back(vec3d{1, 1, 0});
-
-    std::vector<std::vector<uint>> faces = {
-        {0, 3, 2, 1}, // bottom
-        {2, 3, 7, 6}, // back
-        {4, 5, 6, 7}, // top
-        {0, 1, 5, 4}, // front
-        {3, 0, 4, 7}, // left
-        {1, 2, 6, 5}, // right
-    };
-
-    std::vector<std::vector<uint>> polys = {{0, 1, 2, 3, 4, 5}};
-    std::vector<std::vector<bool>> polys_face_winding = {{true, true, true, true, true, true}};
+    // std::vector<vec3d> verts = {};
+    // verts.push_back(vec3d{0, 0, 0});
+    // verts.push_back(vec3d{0, 0, 1});
+    // verts.push_back(vec3d{1, 0, 1});
+    // verts.push_back(vec3d{1, 0, 0});
+    // verts.push_back(vec3d{0, 1, 0});
+    // verts.push_back(vec3d{0, 1, 1});
+    // verts.push_back(vec3d{1, 1, 1});
+    // verts.push_back(vec3d{1, 1, 0});
+    // std::vector<std::vector<uint>> faces = {
+    //     {0, 3, 2, 1}, // bottom
+    //     {2, 3, 7, 6}, // back
+    //     {4, 5, 6, 7}, // top
+    //     {0, 1, 5, 4}, // front
+    //     {3, 0, 4, 7}, // left
+    //     {1, 2, 6, 5}, // right
+    // };
+    // std::vector<std::vector<uint>> polys = {{0, 1, 2, 3, 4, 5}};
+    // std::vector<std::vector<bool>> polys_face_winding = {{true, true, true, true, true, true}};
 
     // DrawablePolyhedralmesh<> poly_mesh(verts, faces, polys, polys_face_winding);
+
     DrawableHexmesh<> poly_mesh;
     grid_mesh(3, 3, 3, poly_mesh);
 
     // marko le facce di superficie
-    std::unordered_map<uint, std::vector<uint>> surf_flags;
+    std::map<uint, std::vector<uint>> surf_flags;
     for (uint fid = 0; fid < poly_mesh.num_faces(); ++fid)
     {
         if (poly_mesh.face_is_on_srf(fid))
@@ -1214,29 +1222,32 @@ int main(int argc, char **argv)
         }
     }
 
-    // uint pid = surf_flags.begin()->first; //TODO prendo il primo poliedro atm
-    uint pid = 0;
+
+
 
     poly_mesh.poly_fix_orientation(); // orientamento coerente dei poliedri
+    
+    std::vector <uint> padded_polys;
+    for (const auto &[key, list] : surf_flags)
+    {
+       if(pad_faces(poly_mesh, key, list))
+       {
+            padded_polys.push_back(key);
+       }
+    }
 
-    pad_faces(poly_mesh, pid, surf_flags[pid]);
-    // for (auto v : poly_mesh.poly_verts_id(pid))
-    // {
-    //     std::cout << "Vertex ID: " << v << std::endl;
-    // }
-    // for (auto f : poly_mesh.poly_faces_id(pid))
-    // {
-    //     std::cout << "Face ID: " << f << std::endl;
-    // }
+    // rimuovo i poliedri originali che sono stati splittati dopo il processo per preservare la coerenza della mesh
+    for (uint i=0; i<padded_polys.size(); ++i)
+    {
+        poly_mesh.poly_remove(padded_polys[i]);
+    }
 
     poly_mesh.updateGL();
 
     GLcanvas gui;
     VolumeMeshControls<DrawableHexmesh<>> menu(&poly_mesh, &gui, "Hex Mesh Controls");
 
-    // gui.push(&poly_mesh);
     gui.push(&poly_mesh);
-    // gui.push(&poly_singularity);
     gui.push(&menu);
 
     gui.launch();
