@@ -1352,6 +1352,7 @@ void run_padding(DrawableHexmesh<> &poly_mesh)
 
 void reset_padding(DrawableHexmesh<> &poly_mesh)
 {
+    // TODO: attualmente rimuovo i poliedri aggiunti ma non ripristino gli originali
     if (padded_polys.empty())
     {
         std::cout << "Nessun padding da resettare." << std::endl;
