@@ -324,7 +324,6 @@ bool arrange_vert_rotation(const std::vector<uint> &verts_og,
 
     for (i = 0; i < 6; i++)
     {
-        // std::cout << "Trying rotation " << i << std::endl;
         hex_rebase(verts_og.data(), i, verts_rebase.data());
         for (j = 0; j < 4; j++)
         {
@@ -333,7 +332,6 @@ bool arrange_vert_rotation(const std::vector<uint> &verts_og,
             for (uint i = 0; i < verts_twisted.size(); i++)
             {
                 vert_position_map[verts_twisted[i]] = i;
-                // std::cout << "Vertice " << verts_twisted[i] << " in posizione " << i << std::endl;
             }
 
             //  guarda che posiziona occupa il vertice da paddare
@@ -533,7 +531,7 @@ bool pad_poly(
         if (faces_to_pad.size() > 0)
         {
             PolyPadStructure pp;
-            std::cout << "pid originale: " << pid << std::endl;
+            // std::cout << "pid originale: " << pid << std::endl;
             for (uint new_pid : new_poly_ids)
             {
                 faces_to_pad_new.clear();
@@ -555,7 +553,7 @@ bool pad_poly(
                 {
                     padded_polys.push_back(new_pid);
                 }
-                std::cout << std::endl;
+                // std::cout << std::endl;
             }
             faces_to_pad.clear();
         }
@@ -1280,28 +1278,25 @@ bool pad_poly(
     return padding_flag;
 }
 
-int main(int argc, char **argv)
+void run_padding(DrawableHexmesh<> &poly_mesh)
 {
-    DrawableHexmesh<> poly_mesh;
-    grid_mesh(3, 3, 3, poly_mesh);
+    std::cout << "Run padding..." << std::endl;
+    // pulisco lo stato di un eventuale padding precedente
+    padded_polys.clear();
 
-    // rimozione poliedri per testing
-    poly_mesh.polys_remove({26, 25, 24});
-
-    std::cout << "creazione struttura dati per il padding..." << std::endl;
-    // marko le facce di superficie
-    // TODO unire al padding
     std::map<uint, PolyPadStructure> polys_to_pad;
+
+    // raccolgo le facce marcate manualmente (invece di tutte le facce di superficie)
     for (uint fid = 0; fid < poly_mesh.num_faces(); ++fid)
     {
-        if (poly_mesh.face_is_on_srf(fid))
+        if (poly_mesh.face_data(fid).flags[MARKED])
         {
-            uint pid = poly_mesh.adj_f2p(fid)[0]; // prendo il poliedro adiacente alla faccia di superficie
+            uint pid = poly_mesh.adj_f2p(fid)[0]; // poliedro adiacente alla faccia marcata
             polys_to_pad[pid].faces.insert(fid);
-            // inoltre scompongo la faccia negli edge e li aggiungo alla mappa per il padding
+
+            // scompongo la faccia negli edge e li aggiungo alla mappa per il padding
             for (uint eid : poly_mesh.adj_f2e(fid))
             {
-                // ogni edge va aggiunto ai poliedri adiacenti
                 std::vector<uint> poly_list = poly_mesh.adj_e2p(eid);
                 for (uint pid_edge : poly_list)
                 {
@@ -1311,18 +1306,19 @@ int main(int argc, char **argv)
         }
     }
 
-    // std::cout << "rimozione ripetizioni di edge già contenuti in una faccia..." << std::endl;
-    //  rimuovo le ripetizioni di edge già contenuti in una faccia
-    //  per ogni poliedro con almeno una faccia da paddare
+    if (polys_to_pad.empty())
+    {
+        std::cout << "Nessuna faccia marcata: niente da paddare." << std::endl;
+        return;
+    }
+
+    // rimuovo le ripetizioni di edge già contenuti in una faccia
     for (auto &[pid, elements] : polys_to_pad)
     {
         for (uint fid : polys_to_pad[pid].faces)
         {
-            // std::cout << "faccia " << fid;
-
             for (auto it = polys_to_pad[pid].edges.begin(); it != polys_to_pad[pid].edges.end();)
             {
-
                 if (poly_mesh.face_contains_edge(fid, *it))
                 {
                     it = polys_to_pad[pid].edges.erase(it);
@@ -1347,12 +1343,44 @@ int main(int argc, char **argv)
     }
 
     poly_mesh.polys_remove(padded_polys);
+
+    poly_mesh.update_bbox();
+    poly_mesh.update_quality();
+    poly_mesh.update_normals();
     poly_mesh.updateGL();
+}
+
+void reset_padding(DrawableHexmesh<> &poly_mesh)
+{
+    if (padded_polys.empty())
+    {
+        std::cout << "Nessun padding da resettare." << std::endl;
+        return;
+    }
+    std::cout << "Reset padding..." << std::endl;
+
+    poly_mesh.polys_remove(padded_polys);
+    padded_polys.clear();
+
+    poly_mesh.update_bbox();
+    poly_mesh.update_quality();
+    poly_mesh.update_normals();
+    poly_mesh.updateGL();
+}
+
+int main(int argc, char **argv)
+{
+    DrawableHexmesh<> poly_mesh;
+    grid_mesh(3, 3, 3, poly_mesh);
 
     GLcanvas gui;
     VolumeMeshControls<DrawableHexmesh<>> menu(&poly_mesh, &gui, "Hex Mesh Controls");
 
+    menu.pad_now_callback = [&](){ run_padding(poly_mesh); };
+    menu.reset_padding_callback = [&](){ reset_padding(poly_mesh); };
+
     gui.push(&poly_mesh);
+    poly_mesh.updateGL();
     gui.push(&menu);
 
     gui.launch();
