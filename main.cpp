@@ -30,7 +30,6 @@ enum
     RESET_MARK
 };
 
-int padding_choice = MARK;
 
 // creo una mappa che associa la faccia del poliedro originale alla lista di vertici dei poliedri creati
 uint retrieve_create_vertex_edge(DrawableHexmesh<> &m, std::vector<uint> verts)
@@ -1389,17 +1388,16 @@ int main(int argc, char **argv)
     int padding_choice = MARK;
     bool open_panel = true;
 
-    // Spostiamo le funzioni di click all'interno del main in modo che possano
-    // catturare per riferimento [&] le variabili gui e poly_mesh
+    
     auto func_mark_face = [&](int modifiers) -> bool
     {
         if (modifiers & GLFW_MOD_SHIFT)
         {
             vec3d p;
-            vec2d click = gui.cursor_pos(); // corretto da gui-> a gui.
+            vec2d click = gui.cursor_pos(); 
             if (gui.unproject(click, p))
             {
-                uint fid = poly_mesh.pick_face(p); // m sostituito con poly_mesh
+                uint fid = poly_mesh.pick_face(p); 
                 uint pid_beneath;
                 if (!poly_mesh.face_is_visible(fid, pid_beneath))
                 {
@@ -1436,12 +1434,6 @@ int main(int argc, char **argv)
     // Imposta l'azione di default del mouse
     gui.callback_mouse_left_click = func_mark_face;
 
-    // Se la tua classe VolumeMeshControls personalizzata ha questi callback
-    // puoi assegnarli qui, altrimenti li chiamiamo direttamente dal menu ImGui
-    // menu.pad_now_callback = [&](){ run_padding(poly_mesh); };
-    // menu.reset_padding_callback = [&](){ reset_padding(poly_mesh); };
-
-    // Definiamo cosa viene disegnato nel pannello laterale
     gui.callback_app_controls = [&]()
     {
         ImGui::SetNextItemOpen(open_panel, ImGuiCond_Once);
@@ -1467,8 +1459,8 @@ int main(int argc, char **argv)
             if (ImGui::SmallButton("Pad now"))
                 run_padding(poly_mesh);
 
-            if (ImGui::SmallButton("Reset padding"))
-                reset_padding(poly_mesh);
+            // if (ImGui::SmallButton("Reset padding"))
+            //     reset_padding(poly_mesh);
 
             ImGui::TreePop();
         }
