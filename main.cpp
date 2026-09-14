@@ -16,12 +16,21 @@ struct PolyPadStructure
     std::set<uint> vertices;
 };
 
-
 // utilizziamo una lista di vertici e non una lista di edge perché l'ordinamento dei vertici implica una posizione diversa del nuovo punto
 // TODO il caso in cui un edge abbia due split inversi da gestire
 std::map<std::vector<uint>, uint> vertex_edge_padding_map; // new vertex id -> old vertices ids
 
 std::vector<uint> padded_polys;
+
+// valori di default per il radio del padding
+enum
+{
+    MARK,
+    UNMARK,
+    RESET_MARK
+};
+
+int padding_choice = MARK;
 
 // creo una mappa che associa la faccia del poliedro originale alla lista di vertici dei poliedri creati
 uint retrieve_create_vertex_edge(DrawableHexmesh<> &m, std::vector<uint> verts)
@@ -1271,7 +1280,6 @@ bool pad_poly(
         }
     }
 
-
     poly_mesh.update_bbox();
     poly_mesh.update_quality();
     poly_mesh.update_normals();
@@ -1377,13 +1385,99 @@ int main(int argc, char **argv)
     GLcanvas gui;
     VolumeMeshControls<DrawableHexmesh<>> menu(&poly_mesh, &gui, "Hex Mesh Controls");
 
-    menu.pad_now_callback = [&](){ run_padding(poly_mesh); };
-    menu.reset_padding_callback = [&](){ reset_padding(poly_mesh); };
+    // Variabili di stato per la GUI
+    int padding_choice = MARK;
+    bool open_panel = true;
+
+    // Spostiamo le funzioni di click all'interno del main in modo che possano
+    // catturare per riferimento [&] le variabili gui e poly_mesh
+    auto func_mark_face = [&](int modifiers) -> bool
+    {
+        if (modifiers & GLFW_MOD_SHIFT)
+        {
+            vec3d p;
+            vec2d click = gui.cursor_pos(); // corretto da gui-> a gui.
+            if (gui.unproject(click, p))
+            {
+                uint fid = poly_mesh.pick_face(p); // m sostituito con poly_mesh
+                uint pid_beneath;
+                if (!poly_mesh.face_is_visible(fid, pid_beneath))
+                {
+                    return false;
+                }
+                poly_mesh.face_data(fid).flags[MARKED] = true;
+                poly_mesh.updateGL();
+            }
+        }
+        return false;
+    };
+
+    auto func_unmark_face = [&](int modifiers) -> bool
+    {
+        if (modifiers & GLFW_MOD_SHIFT)
+        {
+            vec3d p;
+            vec2d click = gui.cursor_pos();
+            if (gui.unproject(click, p))
+            {
+                uint fid = poly_mesh.pick_face(p);
+                uint pid_beneath;
+                if (!poly_mesh.face_is_visible(fid, pid_beneath))
+                {
+                    return false;
+                }
+                poly_mesh.face_data(fid).flags[MARKED] = false;
+                poly_mesh.updateGL();
+            }
+        }
+        return false;
+    };
+
+    // Imposta l'azione di default del mouse
+    gui.callback_mouse_left_click = func_mark_face;
+
+    // Se la tua classe VolumeMeshControls personalizzata ha questi callback
+    // puoi assegnarli qui, altrimenti li chiamiamo direttamente dal menu ImGui
+    // menu.pad_now_callback = [&](){ run_padding(poly_mesh); };
+    // menu.reset_padding_callback = [&](){ reset_padding(poly_mesh); };
+
+    // Definiamo cosa viene disegnato nel pannello laterale
+    gui.callback_app_controls = [&]()
+    {
+        ImGui::SetNextItemOpen(open_panel, ImGuiCond_Once);
+        if (ImGui::TreeNode("Padding Controls"))
+        {
+            if (ImGui::RadioButton("Mark   ", &padding_choice, MARK))
+                gui.callback_mouse_left_click = func_mark_face;
+
+            if (ImGui::RadioButton("Unmark ", &padding_choice, UNMARK))
+                gui.callback_mouse_left_click = func_unmark_face;
+
+            if (ImGui::RadioButton("Reset  Marking", &padding_choice, RESET_MARK))
+            {
+                poly_mesh.face_set_flag(MARKED, false);
+                poly_mesh.updateGL();
+                padding_choice = MARK; // Torna automaticamente su mark dopo il reset
+                gui.callback_mouse_left_click = func_mark_face;
+            }
+
+            ImGui::Spacing();
+
+            // Chiamata diretta alle tue funzioni
+            if (ImGui::SmallButton("Pad now"))
+                run_padding(poly_mesh);
+
+            if (ImGui::SmallButton("Reset padding"))
+                reset_padding(poly_mesh);
+
+            ImGui::TreePop();
+        }
+    };
 
     gui.push(&poly_mesh);
-    poly_mesh.updateGL();
     gui.push(&menu);
-
+    poly_mesh.updateGL();
     gui.launch();
+
     return 0;
 }
