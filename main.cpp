@@ -22,14 +22,19 @@ std::map<std::vector<uint>, uint> vertex_edge_padding_map; // new vertex id -> o
 
 std::vector<uint> padded_polys;
 
-// valori di default per il radio del padding
+// enum per padding_choice
 enum
 {
-    MARK_FACE,
-    MARK_EDGE,
-    UNMARK,
+    FACE,
+    EDGE,
+    VERTEX
 };
 
+enum
+{
+    MARK,
+    UNMARK
+};
 
 // creo una mappa che associa la faccia del poliedro originale alla lista di vertici dei poliedri creati
 uint retrieve_create_vertex_edge(DrawableHexmesh<> &m, std::vector<uint> verts)
@@ -1385,107 +1390,86 @@ int main(int argc, char **argv)
     VolumeMeshControls<DrawableHexmesh<>> menu(&poly_mesh, &gui, "Hex Mesh Controls");
 
     // Variabili di stato per la GUI
-    int padding_choice = MARK_FACE; // Valore iniziale per il padding
+    int structure_choice = FACE;
     bool open_panel = true;
 
-    
-    auto func_mark_face = [&](int modifiers) -> bool
+    auto func_mark_action = [&](int modifiers) -> bool
     {
         if (modifiers & GLFW_MOD_SHIFT)
         {
-            vec3d p;
-            vec2d click = gui.cursor_pos(); 
-            if (gui.unproject(click, p))
-            {
-                uint fid = poly_mesh.pick_face(p); 
-                uint pid_beneath;
-                if (!poly_mesh.face_is_visible(fid, pid_beneath))
-                {
-                    return false;
-                }
-                poly_mesh.face_data(fid).flags[MARKED] = true;
-                poly_mesh.updateGL();
-            }
-        }
-        return false;
-    };
-    auto func_mark_edge = [&](int modifiers) -> bool
-    {
-        if (modifiers & GLFW_MOD_SHIFT)
-        {
-            vec3d p;
-            vec2d click = gui.cursor_pos(); 
-            if (gui.unproject(click, p))
-            {
-                uint eid = poly_mesh.pick_edge(p); 
-                if (!poly_mesh.edge_is_visible(eid))
-                {
-                    return false;
-                }
-                poly_mesh.edge_data(eid).flags[MARKED] = true;
-                poly_mesh.updateGL();
-            }
-        }
-        return false;
-    };
-
-    auto func_unmark_face = [&](int modifiers) -> bool
-    {
-        if (modifiers & GLFW_MOD_SHIFT)
-        {
+            bool flag;
             vec3d p;
             vec2d click = gui.cursor_pos();
             if (gui.unproject(click, p))
             {
-                uint fid = poly_mesh.pick_face(p);
-                uint pid_beneath;
-                if (!poly_mesh.face_is_visible(fid, pid_beneath))
+                switch (structure_choice)
                 {
-                    return false;
+                case FACE:
+                {
+                    uint fid = poly_mesh.pick_face(p);
+                    uint pid_beneath;
+                    if (!poly_mesh.face_is_visible(fid, pid_beneath))
+                    {
+                        return false;
+                    }
+                    flag = poly_mesh.face_data(fid).flags[MARKED];
+                    poly_mesh.face_data(fid).flags[MARKED] = !flag; // Toggle di MARKED flag
+                    break;
                 }
-                poly_mesh.face_data(fid).flags[MARKED] = false;
-                poly_mesh.updateGL();
-            }
-        }
-        return false;
-    };
+                case EDGE:
+                {
+                    uint eid = poly_mesh.pick_edge(p);
+                    if (!poly_mesh.edge_is_visible(eid))
+                    {
+                        return false;
+                    }
+                    flag = poly_mesh.edge_data(eid).flags[MARKED];
+                    poly_mesh.edge_data(eid).flags[MARKED] = !flag; // Toggle di MARKED flag
+                    break;
+                }
+                }
 
-    auto func_unmark_edge = [&](int modifiers) -> bool
-    {
-        if (modifiers & GLFW_MOD_SHIFT)
-        {
-            vec3d p;
-            vec2d click = gui.cursor_pos();
-            if (gui.unproject(click, p))
-            {
-                uint eid = poly_mesh.pick_edge(p);
-                if (!poly_mesh.edge_is_visible(eid))
-                {
-                    return false;
-                }
-                poly_mesh.edge_data(eid).flags[MARKED] = false;
                 poly_mesh.updateGL();
             }
         }
         return false;
     };
+    // auto func_mark_edge = [&](int modifiers) -> bool
+    // {
+    //     if (modifiers & GLFW_MOD_SHIFT)
+    //     {
+    //         vec3d p;
+    //         vec2d click = gui.cursor_pos();
+    //         if (gui.unproject(click, p))
+    //         {
+    //             uint eid = poly_mesh.pick_edge(p);
+    //             if (!poly_mesh.edge_is_visible(eid))
+    //             {
+    //                 return false;
+    //             }
+    //             poly_mesh.edge_data(eid).flags[MARKED] = true;
+    //             poly_mesh.updateGL();
+    //         }
+    //     }
+    //     return false;
+    // };
 
     // Imposta l'azione di default del mouse
-    gui.callback_mouse_left_click = func_mark_face;
+    gui.callback_mouse_left_click = func_mark_action;
 
     gui.callback_app_controls = [&]()
     {
         ImGui::SetNextItemOpen(open_panel, ImGuiCond_Once);
         if (ImGui::TreeNode("Padding Controls"))
         {
-            if (ImGui::RadioButton("Mark faces", &padding_choice, MARK_FACE))
-                gui.callback_mouse_left_click = func_mark_face;
+            if (ImGui::RadioButton("Mark faces", &structure_choice, FACE))
+                gui.callback_mouse_left_click = func_mark_action;
 
-            if (ImGui::RadioButton("Mark edges", &padding_choice, MARK_EDGE))
-                gui.callback_mouse_left_click = func_mark_edge;
+            if (ImGui::RadioButton("Mark edges", &structure_choice, EDGE))
+                gui.callback_mouse_left_click = func_mark_action;
 
-            if (ImGui::RadioButton("Unmark", &padding_choice, UNMARK))
-                gui.callback_mouse_left_click = func_unmark_face;
+            if (ImGui::RadioButton("Mark vertices", &structure_choice, VERTEX))
+                gui.callback_mouse_left_click = func_mark_action;
 
             if (ImGui::SmallButton("Reset Marking"))
             {
