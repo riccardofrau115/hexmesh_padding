@@ -25,9 +25,9 @@ std::vector<uint> padded_polys;
 // valori di default per il radio del padding
 enum
 {
-    MARK,
+    MARK_FACE,
+    MARK_EDGE,
     UNMARK,
-    RESET_MARK
 };
 
 
@@ -1385,7 +1385,7 @@ int main(int argc, char **argv)
     VolumeMeshControls<DrawableHexmesh<>> menu(&poly_mesh, &gui, "Hex Mesh Controls");
 
     // Variabili di stato per la GUI
-    int padding_choice = MARK;
+    int padding_choice = MARK_FACE; // Valore iniziale per il padding
     bool open_panel = true;
 
     
@@ -1404,6 +1404,25 @@ int main(int argc, char **argv)
                     return false;
                 }
                 poly_mesh.face_data(fid).flags[MARKED] = true;
+                poly_mesh.updateGL();
+            }
+        }
+        return false;
+    };
+    auto func_mark_edge = [&](int modifiers) -> bool
+    {
+        if (modifiers & GLFW_MOD_SHIFT)
+        {
+            vec3d p;
+            vec2d click = gui.cursor_pos(); 
+            if (gui.unproject(click, p))
+            {
+                uint eid = poly_mesh.pick_edge(p); 
+                if (!poly_mesh.edge_is_visible(eid))
+                {
+                    return false;
+                }
+                poly_mesh.edge_data(eid).flags[MARKED] = true;
                 poly_mesh.updateGL();
             }
         }
@@ -1431,6 +1450,26 @@ int main(int argc, char **argv)
         return false;
     };
 
+    auto func_unmark_edge = [&](int modifiers) -> bool
+    {
+        if (modifiers & GLFW_MOD_SHIFT)
+        {
+            vec3d p;
+            vec2d click = gui.cursor_pos();
+            if (gui.unproject(click, p))
+            {
+                uint eid = poly_mesh.pick_edge(p);
+                if (!poly_mesh.edge_is_visible(eid))
+                {
+                    return false;
+                }
+                poly_mesh.edge_data(eid).flags[MARKED] = false;
+                poly_mesh.updateGL();
+            }
+        }
+        return false;
+    };
+
     // Imposta l'azione di default del mouse
     gui.callback_mouse_left_click = func_mark_face;
 
@@ -1439,18 +1478,22 @@ int main(int argc, char **argv)
         ImGui::SetNextItemOpen(open_panel, ImGuiCond_Once);
         if (ImGui::TreeNode("Padding Controls"))
         {
-            if (ImGui::RadioButton("Mark   ", &padding_choice, MARK))
+            if (ImGui::RadioButton("Mark faces", &padding_choice, MARK_FACE))
                 gui.callback_mouse_left_click = func_mark_face;
 
-            if (ImGui::RadioButton("Unmark ", &padding_choice, UNMARK))
+            if (ImGui::RadioButton("Mark edges", &padding_choice, MARK_EDGE))
+                gui.callback_mouse_left_click = func_mark_edge;
+
+            if (ImGui::RadioButton("Unmark", &padding_choice, UNMARK))
                 gui.callback_mouse_left_click = func_unmark_face;
 
-            if (ImGui::RadioButton("Reset  Marking", &padding_choice, RESET_MARK))
+            if (ImGui::SmallButton("Reset Marking"))
             {
                 poly_mesh.face_set_flag(MARKED, false);
+                poly_mesh.edge_set_flag(MARKED, false);
                 poly_mesh.updateGL();
-                padding_choice = MARK; // Torna automaticamente su mark dopo il reset
-                gui.callback_mouse_left_click = func_mark_face;
+                // padding_choice = MARK; // Torna automaticamente su mark dopo il reset
+                // gui.callback_mouse_left_click = func_mark_face;
             }
 
             ImGui::Spacing();
