@@ -30,11 +30,7 @@ enum
     VERTEX
 };
 
-enum
-{
-    MARK,
-    UNMARK
-};
+
 
 // creo una mappa che associa la faccia del poliedro originale alla lista di vertici dei poliedri creati
 uint retrieve_create_vertex_edge(DrawableHexmesh<> &m, std::vector<uint> verts)
@@ -1364,7 +1360,7 @@ void run_padding(DrawableHexmesh<> &poly_mesh)
 
 void reset_padding(DrawableHexmesh<> &poly_mesh)
 {
-    // TODO: attualmente rimuovo i poliedri aggiunti ma non ripristino gli originali
+    // TODO: attualmente rimuovo i poliedri aggiunti ma non ripristino gli originali, implementare magari uno snapshot della mesh prima del padding
     if (padded_polys.empty())
     {
         std::cout << "Nessun padding da resettare." << std::endl;
@@ -1413,7 +1409,7 @@ int main(int argc, char **argv)
                         return false;
                     }
                     flag = poly_mesh.face_data(fid).flags[MARKED];
-                    poly_mesh.face_data(fid).flags[MARKED] = !flag; // Toggle di MARKED flag
+                    poly_mesh.face_data(fid).flags[MARKED] = !flag; 
                     break;
                 }
                 case EDGE:
@@ -1424,7 +1420,7 @@ int main(int argc, char **argv)
                         return false;
                     }
                     flag = poly_mesh.edge_data(eid).flags[MARKED];
-                    poly_mesh.edge_data(eid).flags[MARKED] = !flag; // Toggle di MARKED flag
+                    poly_mesh.edge_data(eid).flags[MARKED] = !flag; 
                     break;
                 }
                 }
@@ -1434,26 +1430,7 @@ int main(int argc, char **argv)
         }
         return false;
     };
-    // auto func_mark_edge = [&](int modifiers) -> bool
-    // {
-    //     if (modifiers & GLFW_MOD_SHIFT)
-    //     {
-    //         vec3d p;
-    //         vec2d click = gui.cursor_pos();
-    //         if (gui.unproject(click, p))
-    //         {
-    //             uint eid = poly_mesh.pick_edge(p);
-    //             if (!poly_mesh.edge_is_visible(eid))
-    //             {
-    //                 return false;
-    //             }
-    //             poly_mesh.edge_data(eid).flags[MARKED] = true;
-    //             poly_mesh.updateGL();
-    //         }
-    //     }
-    //     return false;
-    // };
-
+    
     // Imposta l'azione di default del mouse
     gui.callback_mouse_left_click = func_mark_action;
 
@@ -1476,13 +1453,10 @@ int main(int argc, char **argv)
                 poly_mesh.face_set_flag(MARKED, false);
                 poly_mesh.edge_set_flag(MARKED, false);
                 poly_mesh.updateGL();
-                // padding_choice = MARK; // Torna automaticamente su mark dopo il reset
-                // gui.callback_mouse_left_click = func_mark_face;
             }
 
             ImGui::Spacing();
 
-            // Chiamata diretta alle tue funzioni
             if (ImGui::SmallButton("Pad now"))
                 run_padding(poly_mesh);
 
