@@ -1315,7 +1315,7 @@ void run_padding(DrawableHexmesh<> &m)
     }
 
     // propagazione e gestione edge markati
-    for (uint eid = 0 ; eid < m.num_faces(); ++eid){
+    for (uint eid = 0 ; eid < m.num_edges(); ++eid){
         if (m.edge_data(eid).flags[MARKED]){
             //std::cout <<"eid da padddare: "<<eid<< std::endl;
             std::vector<uint> pid_list = m.adj_e2p(eid);
@@ -1371,24 +1371,22 @@ void run_padding(DrawableHexmesh<> &m)
     m.updateGL();
 }
 
-void reset_padding(DrawableHexmesh<> &m)
-{
-    // TODO: attualmente rimuovo i poliedri aggiunti ma non ripristino gli originali, implementare magari uno snapshot della mesh prima del padding
-    if (padded_polys.empty())
-    {
-        std::cout << "Nessun padding da resettare." << std::endl;
-        return;
-    }
-    std::cout << "Reset padding..." << std::endl;
-
-    m.polys_remove(padded_polys);
-    padded_polys.clear();
-
-    m.update_bbox();
-    m.update_quality();
-    m.update_normals();
-    m.updateGL();
-}
+// void reset_padding(DrawableHexmesh<> &m)
+// {
+//     // TODO: attualmente rimuovo i poliedri aggiunti ma non ripristino gli originali, implementare magari uno snapshot della mesh prima del padding
+//     if (padded_polys.empty())
+//     {
+//         std::cout << "Nessun padding da resettare." << std::endl;
+//         return;
+//     }
+//     std::cout << "Reset padding..." << std::endl;
+//     m.polys_remove(padded_polys);
+//     padded_polys.clear();
+//     m.update_bbox();
+//     m.update_quality();
+//     m.update_normals();
+//     m.updateGL();
+// }
 
 int main(int argc, char **argv)
 {
