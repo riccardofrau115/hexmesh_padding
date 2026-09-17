@@ -372,7 +372,7 @@ bool arrange_vert_rotation(const std::vector<uint> &verts_og,
 }
 
 bool pad_poly(
-    DrawableHexmesh<> &poly_mesh,
+    DrawableHexmesh<> &m,
     const uint pid,
     const PolyPadStructure pp_struct
 
@@ -397,7 +397,7 @@ bool pad_poly(
     //     padding_face(og);
     // }
 
-    std::vector<uint> verts_og = poly_mesh.poly_verts_id(pid);
+    std::vector<uint> verts_og = m.poly_verts_id(pid);
     std::vector<std::vector<uint>> new_polys_vids;
     std::vector<uint> verts_rebase = verts_og;
     std::vector<uint> verts_twisted = verts_og;
@@ -421,7 +421,7 @@ bool pad_poly(
         std::vector<uint> edges_converted_vertices;
         for (auto edge_id : edges_to_pad)
         {
-            std::vector<uint> edge_verts = poly_mesh.edge_vert_ids(edge_id);
+            std::vector<uint> edge_verts = m.edge_vert_ids(edge_id);
             for (uint v : edge_verts)
             {
                 if (vert_to_poly_map.find(v) != vert_to_poly_map.end())
@@ -451,12 +451,12 @@ bool pad_poly(
             uint F = verts_og[verts_twisted[5]];
             uint G = verts_og[verts_twisted[6]];
             uint H = verts_og[verts_twisted[7]];
-            uint EF = retrieve_create_vertex_edge(poly_mesh, {E, F});
-            uint HG = retrieve_create_vertex_edge(poly_mesh, {H, G});
-            uint EB = retrieve_create_vertex_edge(poly_mesh, {E, B});
-            uint HC = retrieve_create_vertex_edge(poly_mesh, {H, C});
-            uint EA = retrieve_create_vertex_edge(poly_mesh, {E, A});
-            uint HD = retrieve_create_vertex_edge(poly_mesh, {H, D});
+            uint EF = retrieve_create_vertex_edge(m, {E, F});
+            uint HG = retrieve_create_vertex_edge(m, {H, G});
+            uint EB = retrieve_create_vertex_edge(m, {E, B});
+            uint HC = retrieve_create_vertex_edge(m, {H, C});
+            uint EA = retrieve_create_vertex_edge(m, {E, A});
+            uint HD = retrieve_create_vertex_edge(m, {H, D});
 
             new_polys_vids.clear();
             new_single_poly_vids.clear();
@@ -523,15 +523,15 @@ bool pad_poly(
         {
             for (const auto &poly_vids : new_polys_vids)
             {
-                new_poly_ids.push_back(poly_mesh.poly_add(poly_vids));
+                new_poly_ids.push_back(m.poly_add(poly_vids));
             }
         }
 
         // popolo la mappa di facce out ed in convertendo i vertici in fid
         for (const auto &[out_verts, in_verts] : faces_map_outin)
         {
-            uint fid_out = poly_mesh.face_id(out_verts);
-            uint fid_in = poly_mesh.face_id(in_verts);
+            uint fid_out = m.face_id(out_verts);
+            uint fid_in = m.face_id(in_verts);
             faces_map_outin_mesh[fid_out] = fid_in;
         }
 
@@ -544,7 +544,7 @@ bool pad_poly(
             for (uint new_pid : new_poly_ids)
             {
                 faces_to_pad_new.clear();
-                for (uint new_fid : poly_mesh.adj_p2f(new_pid))
+                for (uint new_fid : m.adj_p2f(new_pid))
                 {
 
                     uint old_fid = faces_map_outin_mesh[new_fid];
@@ -558,7 +558,7 @@ bool pad_poly(
                         pp.faces = faces_to_pad_new;
                     }
                 }
-                if (pad_poly(poly_mesh, new_pid, pp))
+                if (pad_poly(m, new_pid, pp))
                 {
                     padded_polys.push_back(new_pid);
                 }
@@ -585,7 +585,7 @@ bool pad_poly(
         {
             uint fid = faces_to_pad[i];
             std::unordered_set<uint> face_verts;
-            auto f = poly_mesh.face_verts_id(fid);
+            auto f = m.face_verts_id(fid);
             face_verts.insert(f.begin(), f.end());
 
             for (uint j = 0; j < 6; j++) //  verifico a quale faccia corrisponda la singola faccia da paddare nella configurazione tradotta
@@ -606,10 +606,10 @@ bool pad_poly(
             arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0}, vertices_ogface);
             // padding della faccia 0
 
-            uint AE = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[4]});
-            uint BF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[5]});
-            uint CG = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[6]});
-            uint DH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[7]});
+            uint AE = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[4]});
+            uint BF = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[5]});
+            uint CG = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[6]});
+            uint DH = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[7]});
 
             new_polys_vids.clear();
             new_single_poly_vids.clear();
@@ -646,20 +646,20 @@ bool pad_poly(
 
             // std::cout << "Split along faces " << faces_to_pad_converted[0] << " and " << faces_to_pad_converted[1] << std::endl;
             /// caso in cui le facce siano opposte
-            if (!poly_mesh.faces_are_adjacent(faces_to_pad_converted[0], faces_to_pad_converted[1]))
+            if (!m.faces_are_adjacent(faces_to_pad_converted[0], faces_to_pad_converted[1]))
             {
                 // padding delle facce 1 e 3
                 arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {3, 1}, vertices_ogface);
 
-                uint AB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[1]});
-                uint BA = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[0]});
-                uint CD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[3]});
-                uint DC = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[2]});
+                uint AB = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[1]});
+                uint BA = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[0]});
+                uint CD = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[3]});
+                uint DC = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[2]});
 
-                uint EF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[5]});
-                uint FE = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[4]});
-                uint GH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[7]});
-                uint HG = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[6]});
+                uint EF = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[5]});
+                uint FE = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[4]});
+                uint GH = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[7]});
+                uint HG = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[6]});
 
                 new_polys_vids.clear();
                 new_single_poly_vids.clear();
@@ -708,13 +708,13 @@ bool pad_poly(
                 arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {3, 5}, vertices_ogface);
 
                 // bottom face
-                uint AB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[1]});
-                uint CB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[1]});
-                uint DB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[1]});
+                uint AB = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[1]});
+                uint CB = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[1]});
+                uint DB = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[1]});
                 // top face
-                uint EF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[5]});
-                uint GF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[5]});
-                uint HF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[5]});
+                uint EF = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[5]});
+                uint GF = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[5]});
+                uint HF = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[5]});
 
                 new_polys_vids.clear();
 
@@ -759,22 +759,22 @@ bool pad_poly(
             //  facce ad angolo, tutte le facce sono adiacenti tra loro
 
             bool corner =
-                (poly_mesh.faces_are_adjacent(faces_to_pad_converted[0], faces_to_pad_converted[1]) &&
-                 poly_mesh.faces_are_adjacent(faces_to_pad_converted[1], faces_to_pad_converted[2]) &&
-                 poly_mesh.faces_are_adjacent(faces_to_pad_converted[2], faces_to_pad_converted[0]));
+                (m.faces_are_adjacent(faces_to_pad_converted[0], faces_to_pad_converted[1]) &&
+                 m.faces_are_adjacent(faces_to_pad_converted[1], faces_to_pad_converted[2]) &&
+                 m.faces_are_adjacent(faces_to_pad_converted[2], faces_to_pad_converted[0]));
 
             if (corner)
             {
                 // padding delle facce 0,1,4
                 arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0, 1, 4}, vertices_ogface);
 
-                uint AH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[7]});
-                uint BH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[7]});
-                uint CH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[7]});
-                uint DH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[7]});
-                uint EH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[7]});
-                uint FH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[7]});
-                uint GH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[7]});
+                uint AH = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[7]});
+                uint BH = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[7]});
+                uint CH = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[7]});
+                uint DH = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[7]});
+                uint EH = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[7]});
+                uint FH = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[7]});
+                uint GH = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[7]});
 
                 new_polys_vids.clear();
 
@@ -831,15 +831,15 @@ bool pad_poly(
                 // padding delle facce 5, 1, 3
                 arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {5, 1, 3}, vertices_ogface);
 
-                uint AB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[1]});
-                uint BA = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[0]});
-                uint DB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[1]});
-                uint CA = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[0]});
+                uint AB = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[1]});
+                uint BA = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[0]});
+                uint DB = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[1]});
+                uint CA = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[0]});
 
-                uint EF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[5]});
-                uint FE = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[4]});
-                uint GE = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[4]});
-                uint HF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[5]});
+                uint EF = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[5]});
+                uint FE = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[4]});
+                uint GE = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[4]});
+                uint HF = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[5]});
 
                 new_polys_vids.clear();
 
@@ -908,21 +908,21 @@ bool pad_poly(
                 }
             }
 
-            if (poly_mesh.faces_are_adjacent(faces_not_to_pad[0], faces_not_to_pad[1]))
+            if (m.faces_are_adjacent(faces_not_to_pad[0], faces_not_to_pad[1]))
             {
                 // caso in cui le facce da escludere siano adiacenti tra loro
                 // padding delle facce 0, 1, 2, 4
                 arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0, 1, 2, 4}, vertices_ogface);
 
-                uint AH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[7]});
-                uint BH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[7]});
-                uint CH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[7]});
-                uint DH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[7]});
+                uint AH = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[7]});
+                uint BH = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[7]});
+                uint CH = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[7]});
+                uint DH = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[7]});
 
-                uint ED = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[3]});
-                uint FD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[3]});
-                uint GD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[3]});
-                uint HD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[3]});
+                uint ED = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[3]});
+                uint FD = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[3]});
+                uint GD = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[3]});
+                uint HD = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[3]});
 
                 new_polys_vids.clear();
 
@@ -994,15 +994,15 @@ bool pad_poly(
                 // padding delle facce 1, 3, 4 e 5
                 arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {1, 3, 4, 5}, vertices_ogface);
 
-                uint AC = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[2]});
-                uint BD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[3]});
-                uint CA = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[0]});
-                uint DB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[1]});
+                uint AC = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[2]});
+                uint BD = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[3]});
+                uint CA = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[0]});
+                uint DB = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[1]});
 
-                uint EG = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[6]});
-                uint FH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[7]});
-                uint GE = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[4]});
-                uint HF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[5]});
+                uint EG = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[6]});
+                uint FH = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[7]});
+                uint GE = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[4]});
+                uint HF = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[5]});
 
                 new_polys_vids.clear();
 
@@ -1076,15 +1076,15 @@ bool pad_poly(
             // padding delle facce 0, 1, 2, 3, 4
             arrange_face_rotation(verts_og, faces_to_pad_converted, verts_rebase, verts_twisted, {0, 1, 2, 3, 4}, vertices_ogface);
 
-            uint AG = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[6]});
-            uint BH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[7]});
-            uint CH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[7]});
-            uint DG = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[6]});
+            uint AG = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[6]});
+            uint BH = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[7]});
+            uint CH = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[7]});
+            uint DG = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[6]});
 
-            uint EC = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[2]});
-            uint FD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[3]});
-            uint GD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[3]});
-            uint HC = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[2]});
+            uint EC = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[2]});
+            uint FD = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[3]});
+            uint GD = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[3]});
+            uint HC = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[2]});
 
             new_polys_vids.clear();
 
@@ -1168,15 +1168,15 @@ bool pad_poly(
             // std::cout << "Split along  all faces" << std::endl;
             //  padding di tutte le facce, nessuna rotazione necessaria
 
-            uint AG = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[0], verts_twisted[6]});
-            uint BH = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[1], verts_twisted[7]});
-            uint CE = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[2], verts_twisted[4]});
-            uint DF = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[3], verts_twisted[5]});
+            uint AG = retrieve_create_vertex_edge(m, {verts_twisted[0], verts_twisted[6]});
+            uint BH = retrieve_create_vertex_edge(m, {verts_twisted[1], verts_twisted[7]});
+            uint CE = retrieve_create_vertex_edge(m, {verts_twisted[2], verts_twisted[4]});
+            uint DF = retrieve_create_vertex_edge(m, {verts_twisted[3], verts_twisted[5]});
 
-            uint EC = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[4], verts_twisted[2]});
-            uint FD = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[5], verts_twisted[3]});
-            uint GA = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[6], verts_twisted[0]});
-            uint HB = retrieve_create_vertex_edge(poly_mesh, {verts_twisted[7], verts_twisted[1]});
+            uint EC = retrieve_create_vertex_edge(m, {verts_twisted[4], verts_twisted[2]});
+            uint FD = retrieve_create_vertex_edge(m, {verts_twisted[5], verts_twisted[3]});
+            uint GA = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[0]});
+            uint HB = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[1]});
 
             new_polys_vids.clear();
 
@@ -1275,37 +1275,37 @@ bool pad_poly(
         {
             for (const auto &poly_vids : new_polys_vids)
             {
-                poly_mesh.poly_add(poly_vids);
+                m.poly_add(poly_vids);
             }
         }
     }
 
-    poly_mesh.update_bbox();
-    poly_mesh.update_quality();
-    poly_mesh.update_normals();
+    m.update_bbox();
+    m.update_quality();
+    m.update_normals();
     return padding_flag;
 }
 
-void run_padding(DrawableHexmesh<> &poly_mesh)
+void run_padding(DrawableHexmesh<> &m)
 {
     std::cout << "Run padding..." << std::endl;
-    // pulisco lo stato di un eventuale padding precedente
     padded_polys.clear();
 
     std::map<uint, PolyPadStructure> polys_to_pad;
 
-    // raccolgo le facce marcate manualmente (invece di tutte le facce di superficie)
-    for (uint fid = 0; fid < poly_mesh.num_faces(); ++fid)
+    /// raccolgo le strutture marcate 
+    // facce
+    for (uint fid = 0; fid < m.num_faces(); ++fid)
     {
-        if (poly_mesh.face_data(fid).flags[MARKED])
+        if (m.face_data(fid).flags[MARKED])
         {
-            uint pid = poly_mesh.adj_f2p(fid)[0]; // poliedro adiacente alla faccia marcata
+            uint pid = m.adj_f2p(fid)[0]; // poliedro adiacente alla faccia marcata
             polys_to_pad[pid].faces.insert(fid);
 
             // scompongo la faccia negli edge e li aggiungo alla mappa per il padding
-            for (uint eid : poly_mesh.adj_f2e(fid))
+            for (uint eid : m.adj_f2e(fid))
             {
-                std::vector<uint> poly_list = poly_mesh.adj_e2p(eid);
+                std::vector<uint> poly_list = m.adj_e2p(eid);
                 for (uint pid_edge : poly_list)
                 {
                     polys_to_pad[pid_edge].edges.insert(eid);
@@ -1314,9 +1314,22 @@ void run_padding(DrawableHexmesh<> &poly_mesh)
         }
     }
 
+    // propagazione e gestione edge markati
+    for (uint eid = 0 ; eid < m.num_faces(); ++eid){
+        if (m.edge_data(eid).flags[MARKED]){
+            //std::cout <<"eid da padddare: "<<eid<< std::endl;
+            std::vector<uint> pid_list = m.adj_e2p(eid);
+            for (uint pid : pid_list){
+                //std::cout <<"pid adiacente: "<<pid<< std::endl;
+                polys_to_pad[pid].edges.insert(eid);
+            }
+        }
+    }
+
+
     if (polys_to_pad.empty())
     {
-        std::cout << "Nessuna faccia marcata: niente da paddare." << std::endl;
+        std::cout << "Nessun poliedro" << std::endl;
         return;
     }
 
@@ -1327,7 +1340,7 @@ void run_padding(DrawableHexmesh<> &poly_mesh)
         {
             for (auto it = polys_to_pad[pid].edges.begin(); it != polys_to_pad[pid].edges.end();)
             {
-                if (poly_mesh.face_contains_edge(fid, *it))
+                if (m.face_contains_edge(fid, *it))
                 {
                     it = polys_to_pad[pid].edges.erase(it);
                 }
@@ -1339,26 +1352,26 @@ void run_padding(DrawableHexmesh<> &poly_mesh)
         }
     }
 
-    poly_mesh.poly_fix_orientation(); // orientamento coerente dei poliedri
+    m.poly_fix_orientation(); // orientamento coerente dei poliedri
 
     // eseguo il padding
     for (const auto &[key, pp_struct] : polys_to_pad)
     {
-        if (pad_poly(poly_mesh, key, pp_struct))
+        if (pad_poly(m, key, pp_struct))
         {
             padded_polys.push_back(key);
         }
     }
 
-    poly_mesh.polys_remove(padded_polys);
+    m.polys_remove(padded_polys);
 
-    poly_mesh.update_bbox();
-    poly_mesh.update_quality();
-    poly_mesh.update_normals();
-    poly_mesh.updateGL();
+    m.update_bbox();
+    m.update_quality();
+    m.update_normals();
+    m.updateGL();
 }
 
-void reset_padding(DrawableHexmesh<> &poly_mesh)
+void reset_padding(DrawableHexmesh<> &m)
 {
     // TODO: attualmente rimuovo i poliedri aggiunti ma non ripristino gli originali, implementare magari uno snapshot della mesh prima del padding
     if (padded_polys.empty())
@@ -1368,22 +1381,22 @@ void reset_padding(DrawableHexmesh<> &poly_mesh)
     }
     std::cout << "Reset padding..." << std::endl;
 
-    poly_mesh.polys_remove(padded_polys);
+    m.polys_remove(padded_polys);
     padded_polys.clear();
 
-    poly_mesh.update_bbox();
-    poly_mesh.update_quality();
-    poly_mesh.update_normals();
-    poly_mesh.updateGL();
+    m.update_bbox();
+    m.update_quality();
+    m.update_normals();
+    m.updateGL();
 }
 
 int main(int argc, char **argv)
 {
-    DrawableHexmesh<> poly_mesh;
-    grid_mesh(3, 3, 3, poly_mesh);
+    DrawableHexmesh<> m;
+    grid_mesh(3, 3, 3, m);
 
     GLcanvas gui;
-    VolumeMeshControls<DrawableHexmesh<>> menu(&poly_mesh, &gui, "Hex Mesh Controls");
+    VolumeMeshControls<DrawableHexmesh<>> menu(&m, &gui, "Hex Mesh Controls");
 
     // Variabili di stato per la GUI
     int structure_choice = FACE;
@@ -1402,30 +1415,30 @@ int main(int argc, char **argv)
                 {
                 case FACE:
                 {
-                    uint fid = poly_mesh.pick_face(p);
+                    uint fid = m.pick_face(p);
                     uint pid_beneath;
-                    if (!poly_mesh.face_is_visible(fid, pid_beneath))
+                    if (!m.face_is_visible(fid, pid_beneath))
                     {
                         return false;
                     }
-                    flag = poly_mesh.face_data(fid).flags[MARKED];
-                    poly_mesh.face_data(fid).flags[MARKED] = !flag; 
+                    flag = m.face_data(fid).flags[MARKED];
+                    m.face_data(fid).flags[MARKED] = !flag; 
                     break;
                 }
                 case EDGE:
                 {
-                    uint eid = poly_mesh.pick_edge(p);
-                    if (!poly_mesh.edge_is_visible(eid))
+                    uint eid = m.pick_edge(p);
+                    if (!m.edge_is_visible(eid))
                     {
                         return false;
                     }
-                    flag = poly_mesh.edge_data(eid).flags[MARKED];
-                    poly_mesh.edge_data(eid).flags[MARKED] = !flag; 
+                    flag = m.edge_data(eid).flags[MARKED];
+                    m.edge_data(eid).flags[MARKED] = !flag; 
                     break;
                 }
                 }
 
-                poly_mesh.updateGL();
+                m.updateGL();
             }
         }
         return false;
@@ -1450,26 +1463,26 @@ int main(int argc, char **argv)
 
             if (ImGui::SmallButton("Reset Marking"))
             {
-                poly_mesh.face_set_flag(MARKED, false);
-                poly_mesh.edge_set_flag(MARKED, false);
-                poly_mesh.updateGL();
+                m.face_set_flag(MARKED, false);
+                m.edge_set_flag(MARKED, false);
+                m.updateGL();
             }
 
             ImGui::Spacing();
 
             if (ImGui::SmallButton("Pad now"))
-                run_padding(poly_mesh);
+                run_padding(m);
 
             // if (ImGui::SmallButton("Reset padding"))
-            //     reset_padding(poly_mesh);
+            //     reset_padding(m);
 
             ImGui::TreePop();
         }
     };
 
-    gui.push(&poly_mesh);
+    gui.push(&m);
     gui.push(&menu);
-    poly_mesh.updateGL();
+    m.updateGL();
     gui.launch();
 
     return 0;
