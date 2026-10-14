@@ -1294,14 +1294,11 @@ void run_padding(DrawableHexmesh<> &m)
         if (!m.face_data(fid).flags[MARKED])
             continue;
 
-        uint pid;
-        if (!m.face_is_visible(fid, pid)) // utilizzo visibile per prendere sempre il poliedro visibile da un possibile slicing
-        {
-            continue;
-        }
+        // entrambi i poliedri adiacenti 
+        for (uint pid : m.adj_f2p(fid))
+            polys_to_pad[pid].faces.insert(fid);
 
-        polys_to_pad[pid].faces.insert(fid);
-
+        // propagazione sugli edge della faccia
         for (uint eid : m.adj_f2e(fid))
             for (uint pid_edge : m.adj_e2p(eid))
                 polys_to_pad[pid_edge].edges.insert(eid);
