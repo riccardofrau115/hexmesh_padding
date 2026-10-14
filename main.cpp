@@ -30,8 +30,6 @@ enum
     VERTEX
 };
 
-
-
 // creo una mappa che associa la faccia del poliedro originale alla lista di vertici dei poliedri creati
 uint retrieve_create_vertex_edge(DrawableHexmesh<> &m, std::vector<uint> verts)
 {
@@ -539,30 +537,24 @@ bool pad_poly(
 
         if (faces_to_pad.size() > 0)
         {
-            PolyPadStructure pp;
-            // std::cout << "pid originale: " << pid << std::endl;
             for (uint new_pid : new_poly_ids)
             {
+                PolyPadStructure pp;
                 faces_to_pad_new.clear();
+
                 for (uint new_fid : m.adj_p2f(new_pid))
                 {
-
                     uint old_fid = faces_map_outin_mesh[new_fid];
-                    auto it = std::find(faces_to_pad.begin(), faces_to_pad.end(), old_fid);
-                    if (it != faces_to_pad.end())
-                    {
+                    if (std::find(faces_to_pad.begin(), faces_to_pad.end(), old_fid) != faces_to_pad.end())
                         faces_to_pad_new.insert(new_fid);
-                    }
-                    if (faces_to_pad_new.size() > 0)
-                    {
-                        pp.faces = faces_to_pad_new;
-                    }
                 }
+
+                if (faces_to_pad_new.empty())
+                    continue; // niente da paddare su questo poliedro
+
+                pp.faces = faces_to_pad_new;
                 if (pad_poly(m, new_pid, pp))
-                {
                     padded_polys.push_back(new_pid);
-                }
-                // std::cout << std::endl;
             }
             faces_to_pad.clear();
         }
@@ -1178,6 +1170,7 @@ bool pad_poly(
             uint GA = retrieve_create_vertex_edge(m, {verts_twisted[6], verts_twisted[0]});
             uint HB = retrieve_create_vertex_edge(m, {verts_twisted[7], verts_twisted[1]});
 
+            new_polys_vids.push_back(new_single_poly_vids);
             new_polys_vids.clear();
 
             // AG, BH, CE, DF, EC, FD, GA, HB;
@@ -1293,39 +1286,39 @@ void run_padding(DrawableHexmesh<> &m)
 
     std::map<uint, PolyPadStructure> polys_to_pad;
 
-    /// raccolgo le strutture marcate 
+    /// raccolgo le strutture marcate
+
     // facce
     for (uint fid = 0; fid < m.num_faces(); ++fid)
     {
-        if (m.face_data(fid).flags[MARKED])
-        {
-            uint pid = m.adj_f2p(fid)[0]; // poliedro adiacente alla faccia marcata
-            polys_to_pad[pid].faces.insert(fid);
+        if (!m.face_data(fid).flags[MARKED])
+            continue;
 
-            // scompongo la faccia negli edge e li aggiungo alla mappa per il padding
-            for (uint eid : m.adj_f2e(fid))
-            {
-                std::vector<uint> poly_list = m.adj_e2p(eid);
-                for (uint pid_edge : poly_list)
-                {
-                    polys_to_pad[pid_edge].edges.insert(eid);
-                }
-            }
+        uint pid;
+        if (!m.face_is_visible(fid, pid)) // utilizzo visibile per prendere sempre il poliedro visibile da un possibile slicing
+        {
+            continue;
         }
+
+        polys_to_pad[pid].faces.insert(fid);
+
+        for (uint eid : m.adj_f2e(fid))
+            for (uint pid_edge : m.adj_e2p(eid))
+                polys_to_pad[pid_edge].edges.insert(eid);
     }
 
-    // propagazione e gestione edge markati
-    for (uint eid = 0 ; eid < m.num_edges(); ++eid){
-        if (m.edge_data(eid).flags[MARKED]){
-            //std::cout <<"eid da padddare: "<<eid<< std::endl;
+    // edge
+    for (uint eid = 0; eid < m.num_edges(); ++eid)
+    {
+        if (m.edge_data(eid).flags[MARKED])
+        {
             std::vector<uint> pid_list = m.adj_e2p(eid);
-            for (uint pid : pid_list){
-                //std::cout <<"pid adiacente: "<<pid<< std::endl;
+            for (uint pid : pid_list)
+            {
                 polys_to_pad[pid].edges.insert(eid);
             }
         }
     }
-
 
     if (polys_to_pad.empty())
     {
@@ -1391,7 +1384,10 @@ void run_padding(DrawableHexmesh<> &m)
 int main(int argc, char **argv)
 {
     DrawableHexmesh<> m;
-    grid_mesh(3, 3, 3, m);
+    if (argc > 1)
+        m = DrawableHexmesh<>(argv[1]); // il costruttore da filename sceglie il parser in base all'estensione
+    else
+        grid_mesh(3, 3, 3, m);
 
     GLcanvas gui;
     VolumeMeshControls<DrawableHexmesh<>> menu(&m, &gui, "Hex Mesh Controls");
@@ -1420,7 +1416,7 @@ int main(int argc, char **argv)
                         return false;
                     }
                     flag = m.face_data(fid).flags[MARKED];
-                    m.face_data(fid).flags[MARKED] = !flag; 
+                    m.face_data(fid).flags[MARKED] = !flag;
                     break;
                 }
                 case EDGE:
@@ -1431,7 +1427,7 @@ int main(int argc, char **argv)
                         return false;
                     }
                     flag = m.edge_data(eid).flags[MARKED];
-                    m.edge_data(eid).flags[MARKED] = !flag; 
+                    m.edge_data(eid).flags[MARKED] = !flag;
                     break;
                 }
                 }
@@ -1441,7 +1437,7 @@ int main(int argc, char **argv)
         }
         return false;
     };
-    
+
     // Imposta l'azione di default del mouse
     gui.callback_mouse_left_click = func_mark_action;
 
