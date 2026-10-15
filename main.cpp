@@ -1401,9 +1401,7 @@ bool pad_poly(
             }
         }
     }
-    m.update_bbox();
-    m.update_quality();
-    m.update_normals();
+
     return padding_flag;
 }
 
@@ -1430,6 +1428,11 @@ void run_padding(DrawableHexmesh<> &m)
         for (uint eid : m.adj_f2e(fid))
             for (uint pid_edge : m.adj_e2p(eid))
                 polys_to_pad[pid_edge].edges.insert(eid);
+
+        // propagazione sui vertici della faccia
+        for (uint vid : m.adj_f2v(fid))
+            for (uint pid_vert : m.adj_v2p(vid))
+                polys_to_pad[pid_vert].verts.insert(vid);
     }
 
     // edge
@@ -1442,6 +1445,11 @@ void run_padding(DrawableHexmesh<> &m)
             {
                 polys_to_pad[pid].edges.insert(eid);
             }
+
+            // propagazione sui vertici dell'edge
+            for (uint vid : m.adj_e2v(eid))
+                for (uint pid_vert : m.adj_v2p(vid))
+                    polys_to_pad[pid_vert].verts.insert(vid);
         }
     }
 
@@ -1525,7 +1533,7 @@ int main(int argc, char **argv)
     if (argc > 1)
         m = DrawableHexmesh<>(argv[1]); // il costruttore da filename sceglie il parser in base all'estensione
     else
-        grid_mesh(3, 3, 3, m);
+        grid_mesh(5, 5, 5, m);
 
     GLcanvas gui;
     VolumeMeshControls<DrawableHexmesh<>> menu(&m, &gui, "Hex Mesh Controls");
