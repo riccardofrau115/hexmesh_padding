@@ -13,7 +13,7 @@ struct PolyPadStructure
 {
     std::set<uint> faces;
     std::set<uint> edges;
-    std::set<uint> vertices;
+    std::set<uint> verts;
 };
 
 // utilizziamo una lista di vertici e non una lista di edge perché l'ordinamento dei vertici implica una posizione diversa del nuovo punto
@@ -379,12 +379,13 @@ bool pad_poly(
     std::vector<uint> faces_to_pad(pp_struct.faces.begin(), pp_struct.faces.end());
     std::set<uint> faces_to_pad_new;
     const std::vector<uint> edges_to_pad(pp_struct.edges.begin(), pp_struct.edges.end());
-    const std::vector<uint> vertices_to_pad(pp_struct.vertices.begin(), pp_struct.vertices.end());
+    const std::vector<uint> verts_to_pad(pp_struct.verts.begin(), pp_struct.verts.end());
 
-    /// LOGICA DI PADDING
+    /// LOGICA DI PADDING MULTIPLO
     // if (padding_edges)
     // {
-    //     padding_edge(og);
+    // * gestione di doppio padding su poliedro *
+    //     padding_edge(og);cv
     //     if (padding_faces)
     //     {
     //         padding_face(padded);
@@ -393,6 +394,10 @@ bool pad_poly(
     // else if (padding_faces)
     // {
     //     padding_face(og);
+    // }
+    // else if (padding_vertices)
+    // {
+    //     padding_vertex(og);
     // }
 
     std::vector<uint> verts_og = m.poly_verts_id(pid);
@@ -1273,6 +1278,129 @@ bool pad_poly(
         }
     }
 
+    /// PAD VERTICES
+
+    else if (verts_to_pad.size() > 0)
+    {
+        std::unordered_map<uint, uint> vert_to_poly_map; // mappa da mesh a poliedro
+        for (uint i = 0; i < verts_og.size(); i++)
+        {
+            vert_to_poly_map[verts_og[i]] = i;
+        }
+
+        // converto i vertici da paddare da mesh a poliedro
+        std::vector<uint> verts_to_pad_converted;
+        for (auto v : verts_to_pad)
+        {
+            if (vert_to_poly_map.find(v) != vert_to_poly_map.end())
+            {
+                verts_to_pad_converted.push_back(vert_to_poly_map[v]);
+            }
+        }
+
+        switch (verts_to_pad_converted.size())
+        {
+        case 1:
+        {
+            // std::cout << "Split along vertex " << verts_to_pad_converted[0] << std::endl;
+            if (!arrange_vert_rotation({0, 1, 2, 3, 4, 5, 6, 7}, verts_rebase, verts_twisted, verts_to_pad_converted, {0}))
+            {
+                throw std::runtime_error("No valid rotation found for the given edge to pad and static vertices.");
+            }
+
+            // padding del vertice 0
+
+            uint A = verts_og[verts_twisted[0]];
+            uint B = verts_og[verts_twisted[1]];
+            uint C = verts_og[verts_twisted[2]];
+            uint D = verts_og[verts_twisted[3]];
+            uint E = verts_og[verts_twisted[4]];
+            uint F = verts_og[verts_twisted[5]];
+            uint G = verts_og[verts_twisted[6]];
+            uint H = verts_og[verts_twisted[7]];
+
+            uint AB = retrieve_create_vertex_edge(m, {A, B});
+            uint AC = retrieve_create_vertex_edge(m, {A, C});
+            uint AD = retrieve_create_vertex_edge(m, {A, D});
+            uint AE = retrieve_create_vertex_edge(m, {A, E});
+            uint AF = retrieve_create_vertex_edge(m, {A, F});
+            uint AG = retrieve_create_vertex_edge(m, {A, G});
+            uint AH = retrieve_create_vertex_edge(m, {A, H});
+
+            //************************************/
+
+            new_polys_vids.clear();
+            new_single_poly_vids.clear();
+
+            new_single_poly_vids.push_back(A);
+            new_single_poly_vids.push_back(AB);
+            new_single_poly_vids.push_back(AC);
+            new_single_poly_vids.push_back(AD);
+            new_single_poly_vids.push_back(AE);
+            new_single_poly_vids.push_back(AF);
+            new_single_poly_vids.push_back(AG);
+            new_single_poly_vids.push_back(AH);
+
+            new_polys_vids.push_back(new_single_poly_vids);
+            new_single_poly_vids.clear();
+
+            new_single_poly_vids.push_back(AD);
+            new_single_poly_vids.push_back(AC);
+            new_single_poly_vids.push_back(C);
+            new_single_poly_vids.push_back(D);
+            new_single_poly_vids.push_back(AH);
+            new_single_poly_vids.push_back(AG);
+            new_single_poly_vids.push_back(G);
+            new_single_poly_vids.push_back(H);
+
+            new_polys_vids.push_back(new_single_poly_vids);
+            new_single_poly_vids.clear();
+
+            new_single_poly_vids.push_back(AE);
+            new_single_poly_vids.push_back(AF);
+            new_single_poly_vids.push_back(AG);
+            new_single_poly_vids.push_back(AH);
+            new_single_poly_vids.push_back(E);
+            new_single_poly_vids.push_back(F);
+            new_single_poly_vids.push_back(G);
+            new_single_poly_vids.push_back(H);
+
+            new_polys_vids.push_back(new_single_poly_vids);
+            new_single_poly_vids.clear();
+
+            new_single_poly_vids.push_back(AB);
+            new_single_poly_vids.push_back(B);
+            new_single_poly_vids.push_back(C);
+            new_single_poly_vids.push_back(AC);
+            new_single_poly_vids.push_back(AF);
+            new_single_poly_vids.push_back(F);
+            new_single_poly_vids.push_back(G);
+            new_single_poly_vids.push_back(AG);
+
+            new_polys_vids.push_back(new_single_poly_vids);
+            new_single_poly_vids.clear();
+
+            new_polys_vids.push_back(new_single_poly_vids);
+
+            break;
+
+            break;
+        }
+
+        default:
+            std::cout << "No possible split for " << verts_to_pad_converted.size() << " vertices" << std::endl;
+            padding_flag = false;
+            break;
+        }
+
+        if (padding_flag)
+        {
+            for (const auto &poly_vids : new_polys_vids)
+            {
+                m.poly_add(poly_vids);
+            }
+        }
+    }
     m.update_bbox();
     m.update_quality();
     m.update_normals();
@@ -1294,7 +1422,7 @@ void run_padding(DrawableHexmesh<> &m)
         if (!m.face_data(fid).flags[MARKED])
             continue;
 
-        // entrambi i poliedri adiacenti 
+        // entrambi i poliedri adiacenti
         for (uint pid : m.adj_f2p(fid))
             polys_to_pad[pid].faces.insert(fid);
 
@@ -1313,6 +1441,19 @@ void run_padding(DrawableHexmesh<> &m)
             for (uint pid : pid_list)
             {
                 polys_to_pad[pid].edges.insert(eid);
+            }
+        }
+    }
+
+    // vertici
+    for (uint vid = 0; vid < m.num_verts(); ++vid)
+    {
+        if (m.vert_data(vid).flags[MARKED])
+        {
+            std::vector<uint> pid_list = m.adj_v2p(vid);
+            for (uint pid : pid_list)
+            {
+                polys_to_pad[pid].verts.insert(vid);
             }
         }
     }
@@ -1427,6 +1568,19 @@ int main(int argc, char **argv)
                     m.edge_data(eid).flags[MARKED] = !flag;
                     break;
                 }
+                case VERTEX:
+                {
+                    uint vid = m.pick_vert(p);
+                    if (!m.vert_is_visible(vid))
+                    {
+                        return false;
+                    }
+                    flag = m.vert_data(vid).flags[MARKED];
+                    m.vert_data(vid).flags[MARKED] = !flag;
+                    break;
+                }
+                default:
+                    break;
                 }
 
                 m.updateGL();
@@ -1456,6 +1610,7 @@ int main(int argc, char **argv)
             {
                 m.face_set_flag(MARKED, false);
                 m.edge_set_flag(MARKED, false);
+                m.vert_set_flag(MARKED, false);
                 m.updateGL();
             }
 
